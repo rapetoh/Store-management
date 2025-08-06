@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, Printer, Download, CreditCard, Cash } from 'lucide-react'
+import { X, Printer, Download, CreditCard, DollarSign, Search, Percent, Tag } from 'lucide-react'
 
 interface InvoiceItem {
   id: string
@@ -10,6 +10,28 @@ interface InvoiceItem {
   unitPrice: number
   taxRate: number
   discount: number
+}
+
+interface Product {
+  id: string
+  name: string
+  sku: string
+  price: number
+  stock: number
+  category: string
+  supplier: string
+  status: string
+}
+
+interface PromoCode {
+  code: string
+  type: 'percentage' | 'fixed'
+  value: number
+  minAmount: number
+  maxUses: number
+  usedCount: number
+  validUntil: string
+  description: string
 }
 
 interface InvoiceModalProps {
@@ -27,10 +49,33 @@ const taxRates = [
 ]
 
 const paymentMethods = [
-  { id: 'cash', name: 'Espèces', icon: Cash },
+  { id: 'cash', name: 'Espèces', icon: DollarSign },
   { id: 'card', name: 'Carte bancaire', icon: CreditCard },
-  { id: 'check', name: 'Chèque', icon: Cash },
+  { id: 'check', name: 'Chèque', icon: DollarSign },
   { id: 'transfer', name: 'Virement', icon: CreditCard }
+]
+
+// Base de données des produits (simulation)
+const productsDatabase: Product[] = [
+  { id: '1', name: 'Souris Sans Fil X2', sku: 'MS-001', price: 25.00, stock: 50, category: 'Électronique', supplier: 'TechCorp', status: 'En stock' },
+  { id: '2', name: 'Clavier Ergonomique', sku: 'KB-002', price: 75.00, stock: 30, category: 'Accessoires', supplier: 'ErgoGear', status: 'En stock' },
+  { id: '3', name: 'Écran 24" Full HD', sku: 'MN-003', price: 150.00, stock: 20, category: 'Électronique', supplier: 'ViewTech', status: 'En stock' },
+  { id: '4', name: 'Casque Gaming Pro', sku: 'HD-004', price: 89.99, stock: 25, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
+  { id: '5', name: 'Webcam HD 1080p', sku: 'WC-005', price: 45.00, stock: 40, category: 'Électronique', supplier: 'TechCorp', status: 'En stock' },
+  { id: '6', name: 'Disque Dur Externe 1TB', sku: 'HD-006', price: 65.00, stock: 35, category: 'Stockage', supplier: 'DataVault', status: 'En stock' },
+  { id: '7', name: 'Clé USB 32GB', sku: 'USB-007', price: 12.50, stock: 100, category: 'Stockage', supplier: 'DataVault', status: 'En stock' },
+  { id: '8', name: 'Souris Gaming RGB', sku: 'MS-008', price: 35.00, stock: 45, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
+  { id: '9', name: 'Clavier Mécanique', sku: 'KB-009', price: 120.00, stock: 15, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
+  { id: '10', name: 'Haut-parleurs Bluetooth', sku: 'SP-010', price: 55.00, stock: 30, category: 'Audio', supplier: 'GameSound', status: 'En stock' }
+]
+
+// Base de données des codes promo (simulation)
+const promoDatabase: PromoCode[] = [
+  { code: 'WELCOME10', type: 'percentage', value: 10, minAmount: 50, maxUses: 100, usedCount: 45, validUntil: '2025-12-31', description: '10% de réduction pour nouveaux clients' },
+  { code: 'SUMMER20', type: 'percentage', value: 20, minAmount: 100, maxUses: 50, usedCount: 23, validUntil: '2025-08-31', description: '20% de réduction été' },
+  { code: 'FREESHIP', type: 'fixed', value: 15, minAmount: 75, maxUses: 200, usedCount: 89, validUntil: '2025-12-31', description: 'Livraison gratuite (15€)' },
+  { code: 'FLASH50', type: 'percentage', value: 50, minAmount: 200, maxUses: 10, usedCount: 8, validUntil: '2025-06-30', description: '50% de réduction flash' },
+  { code: 'LOYALTY5', type: 'percentage', value: 5, minAmount: 25, maxUses: 500, usedCount: 156, validUntil: '2025-12-31', description: '5% fidélité' }
 ]
 
 export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalProps) {
@@ -63,6 +108,18 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
   const [invoiceDate] = useState(new Date().toISOString().split('T')[0])
   const [dueDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
 
+  // Auto-complétion states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<Product[]>([])
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
+
+  // Promo code states
+  const [promoCode, setPromoCode] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null)
+  const [promoError, setPromoError] = useState('')
+  const [promoSuccess, setPromoSuccess] = useState('')
+
   const printRef = useRef<HTMLDivElement>(null)
 
   const calculateSubtotal = () => {
@@ -82,38 +139,276 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
     }, 0)
   }
 
+  const calculatePromoDiscount = () => {
+    if (!appliedPromo) return 0
+    
+    const subtotal = calculateSubtotal()
+    if (subtotal < appliedPromo.minAmount) return 0
+
+    if (appliedPromo.type === 'percentage') {
+      return (subtotal * appliedPromo.value) / 100
+    } else {
+      return Math.min(appliedPromo.value, subtotal)
+    }
+  }
+
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax()
+    const subtotal = calculateSubtotal()
+    const tax = calculateTax()
+    const promoDiscount = calculatePromoDiscount()
+    return subtotal + tax - promoDiscount
+  }
+
+  // Fonction de recherche pour l'auto-complétion
+  const searchProducts = (term: string) => {
+    if (term.length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    const filtered = productsDatabase.filter(product => 
+      product.name.toLowerCase().includes(term.toLowerCase()) ||
+      product.sku.toLowerCase().includes(term.toLowerCase())
+    ).slice(0, 5) // Limiter à 5 suggestions
+
+    setSuggestions(filtered)
+    setShowSuggestions(filtered.length > 0)
+    setSelectedSuggestionIndex(-1)
+  }
+
+  // Sélectionner un produit depuis les suggestions
+  const selectProduct = (product: Product) => {
+    const newItem: InvoiceItem = {
+      id: Date.now().toString(),
+      name: product.name,
+      quantity: 1,
+      unitPrice: product.price,
+      taxRate: 20, // TVA par défaut
+      discount: 0
+    }
+    setItems(prev => [...prev, newItem])
+    setSearchTerm('')
+    setShowSuggestions(false)
+    setSuggestions([])
+  }
+
+  // Appliquer un code promo
+  const applyPromoCode = () => {
+    setPromoError('')
+    setPromoSuccess('')
+
+    if (!promoCode.trim()) {
+      setPromoError('Veuillez entrer un code promo')
+      return
+    }
+
+    const promo = promoDatabase.find(p => p.code.toUpperCase() === promoCode.toUpperCase())
+    
+    if (!promo) {
+      setPromoError('Code promo invalide')
+      return
+    }
+
+    // Vérifier la date de validité
+    if (new Date() > new Date(promo.validUntil)) {
+      setPromoError('Code promo expiré')
+      return
+    }
+
+    // Vérifier le nombre d'utilisations
+    if (promo.usedCount >= promo.maxUses) {
+      setPromoError('Code promo épuisé')
+      return
+    }
+
+    // Vérifier le montant minimum
+    const subtotal = calculateSubtotal()
+    if (subtotal < promo.minAmount) {
+      setPromoError(`Montant minimum requis: €${promo.minAmount}`)
+      return
+    }
+
+    setAppliedPromo(promo)
+    setPromoSuccess(`Code promo appliqué: ${promo.description}`)
+    setPromoCode('')
+  }
+
+  // Supprimer le code promo appliqué
+  const removePromoCode = () => {
+    setAppliedPromo(null)
+    setPromoSuccess('')
+  }
+
+  // Gestion des touches clavier pour la navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1)
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
+          selectProduct(suggestions[selectedSuggestionIndex])
+        }
+        break
+      case 'Escape':
+        setShowSuggestions(false)
+        setSearchTerm('')
+        break
+    }
   }
 
   const handlePrint = () => {
     if (printRef.current) {
-      const printContent = printRef.current.innerHTML
-      const printWindow = window.open('', '_blank')
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Facture ${invoiceNumber}</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .invoice-header { text-align: center; margin-bottom: 30px; }
-                .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f8f9fa; }
-                .totals { text-align: right; }
-                .footer { margin-top: 40px; text-align: center; font-size: 12px; }
-              </style>
-            </head>
-            <body>
-              ${printContent}
-            </body>
-          </html>
-        `)
-        printWindow.document.close()
-        printWindow.print()
-      }
+      // Sauvegarder le contenu original de la page
+      const originalContent = document.body.innerHTML
+      
+      // Remplacer le contenu de la page par la facture
+      document.body.innerHTML = printRef.current.innerHTML
+      
+      // Ajouter des styles d'impression
+      const style = document.createElement('style')
+      style.textContent = `
+        @media print {
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            font-size: 12px;
+          }
+          .invoice-header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+          }
+          .invoice-header h1 { 
+            font-size: 24px; 
+            margin: 0; 
+            color: #333;
+          }
+          .invoice-header h2 { 
+            font-size: 18px; 
+            margin: 5px 0; 
+            color: #666;
+          }
+          .invoice-details { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 30px; 
+          }
+          .invoice-details > div {
+            flex: 1;
+          }
+          .invoice-details h3 {
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            color: #333;
+          }
+          .invoice-details p {
+            margin: 5px 0;
+            color: #666;
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+          }
+          th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+            font-size: 11px;
+          }
+          th { 
+            background-color: #f8f9fa; 
+            font-weight: bold;
+            color: #333;
+          }
+          .totals { 
+            text-align: right; 
+            margin-top: 20px;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+          }
+          .totals p {
+            margin: 5px 0;
+            font-size: 12px;
+          }
+          .totals p:last-child {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+          }
+          .footer { 
+            margin-top: 40px; 
+            text-align: center; 
+            font-size: 10px; 
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+          }
+          @page {
+            margin: 1cm;
+          }
+        }
+        @media screen {
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+          }
+          .invoice-header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+          }
+          .invoice-details { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 30px; 
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+          }
+          th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+          }
+          th { 
+            background-color: #f8f9fa; 
+          }
+          .totals { 
+            text-align: right; 
+          }
+          .footer { 
+            margin-top: 40px; 
+            text-align: center; 
+            font-size: 12px; 
+          }
+        }
+      `
+      document.head.appendChild(style)
+      
+      // Imprimer
+      window.print()
+      
+      // Restaurer le contenu original après l'impression
+      setTimeout(() => {
+        document.body.innerHTML = originalContent
+        // Réinitialiser les event listeners si nécessaire
+        window.location.reload()
+      }, 100)
     }
   }
 
@@ -272,6 +567,127 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
             </div>
           </div>
 
+          {/* Add Article Section */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Ajouter un article</h3>
+            <div className="relative">
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      searchProducts(e.target.value)
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Tapez le nom ou le code du produit..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (searchTerm.trim()) {
+                      searchProducts(searchTerm)
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Rechercher
+                </button>
+              </div>
+
+              {/* Suggestions */}
+              {showSuggestions && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {suggestions.map((product, index) => (
+                    <div
+                      key={product.id}
+                      onClick={() => selectProduct(product)}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 ${
+                        index === selectedSuggestionIndex ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">Code: {product.sku}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium text-gray-900">€{product.price.toFixed(2)}</div>
+                          <div className="text-sm text-gray-500">Stock: {product.stock}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Promo Code Section */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Code promo</h3>
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1">
+                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="Entrez votre code promo..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={applyPromoCode}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Appliquer
+              </button>
+            </div>
+            
+            {/* Promo Messages */}
+            {promoError && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-600 text-sm">{promoError}</p>
+              </div>
+            )}
+            
+            {promoSuccess && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                <div className="flex justify-between items-center">
+                  <p className="text-green-600 text-sm">{promoSuccess}</p>
+                  <button
+                    onClick={removePromoCode}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Available Promo Codes */}
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Codes promo disponibles :</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {promoDatabase.map(promo => (
+                  <div key={promo.code} className="p-2 bg-gray-50 rounded-md text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-blue-600">{promo.code}</span>
+                      <span className="text-gray-500">
+                        {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                      </span>
+                    </div>
+                    <div className="text-gray-600 mt-1">{promo.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Items Table */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-3">
@@ -399,6 +815,12 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
                   <span className="text-gray-600">TVA:</span>
                   <span className="font-medium">€{calculateTax().toFixed(2)}</span>
                 </div>
+                {appliedPromo && (
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-600">Réduction promo:</span>
+                    <span className="font-medium text-green-600">-€{calculatePromoDiscount().toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-300 pt-2">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold">Total TTC:</span>
@@ -467,6 +889,9 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
           <div className="totals">
             <p><strong>Sous-total HT:</strong> €{calculateSubtotal().toFixed(2)}</p>
             <p><strong>TVA:</strong> €{calculateTax().toFixed(2)}</p>
+            {appliedPromo && (
+              <p><strong>Réduction promo:</strong> -€{calculatePromoDiscount().toFixed(2)}</p>
+            )}
             <p><strong>Total TTC:</strong> €{calculateTotal().toFixed(2)}</p>
           </div>
         </div>
