@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import AddProductModal from './AddProductModal'
-import InfoModal from './InfoModal'
+import QuickSaleModal from './QuickSaleModal'
 
 const chartData = [
   { name: 'Lun', ventes: 4000, stock: 2400 },
@@ -40,8 +40,7 @@ const recentProducts = [
 
 export default function Dashboard() {
   const [showAddProductModal, setShowAddProductModal] = useState(false)
-  const [showInfoModal, setShowInfoModal] = useState(false)
-  const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
+  const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
     if (typeof window !== 'undefined' && (window as any).showToast) {
@@ -53,14 +52,8 @@ export default function Dashboard() {
     showToast('success', 'Produit ajouté', `Le produit "${newProduct.name}" a été ajouté avec succès !`)
   }
 
-  const handleNewOrder = () => {
-    setInfoModalData({
-      title: 'Nouvelle commande',
-      message: 'Fonctionnalité de création de commande\n\nRedirection vers la section Commandes...\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
-      type: 'info',
-      icon: 'cart'
-    })
-    setShowInfoModal(true)
+  const handleSaleCompleted = (sale: any) => {
+    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${sale.total.toFixed(2)}`)
   }
 
   return (
@@ -79,10 +72,10 @@ export default function Dashboard() {
             Ajouter un produit
           </button>
           <button 
-            onClick={handleNewOrder}
+            onClick={() => setShowQuickSaleModal(true)}
             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
           >
-            Nouvelle commande
+            Nouvelle vente
           </button>
         </div>
       </div>
@@ -99,57 +92,46 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                <div className="flex items-center mt-2">
-                  {stat.change.startsWith('+') ? (
-                    <ArrowUpRight className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="w-4 h-4 text-red-500" />
-                  )}
-                  <span className={`text-sm font-medium ml-1 ${
-                    stat.change.startsWith('+') ? 'text-green-500' : 'text-red-500'
-                  }`}>
-                    {stat.change}
-                  </span>
-                </div>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
               </div>
-              <div className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}>
+              <div className={`p-3 rounded-full ${stat.color}`}>
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
+            </div>
+            <div className="flex items-center mt-4">
+              {stat.change.startsWith('+') ? (
+                <ArrowUpRight className="w-4 h-4 text-green-500" />
+              ) : (
+                <ArrowDownRight className="w-4 h-4 text-red-500" />
+              )}
+              <span className={`text-sm font-medium ${
+                stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {stat.change}
+              </span>
+              <span className="text-sm text-gray-600 ml-1">vs mois dernier</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Charts Section */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Chart */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des Ventes</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="name" stroke="#6B7280" />
-              <YAxis stroke="#6B7280" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="ventes" 
-                stroke="#3B82F6" 
-                strokeWidth={3}
-                dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-              />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="ventes" stroke="#3B82F6" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Categories Chart */}
+        {/* Category Distribution */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition par Catégorie</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -158,22 +140,17 @@ export default function Dashboard() {
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
                 dataKey="value"
               >
                 {pieData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'white',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                }}
-              />
+              <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -189,19 +166,19 @@ export default function Dashboard() {
             {recentProducts.map((product) => (
               <div key={product.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <Package className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Package className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{product.name}</p>
                     <p className="text-sm text-gray-600">Stock: {product.stock} unités</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    product.status === 'En stock' ? 'bg-green-100 text-green-700' :
-                    product.status === 'Stock faible' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    product.status === 'En stock' ? 'bg-green-100 text-green-800' :
+                    product.status === 'Stock faible' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
                   }`}>
                     {product.status}
                   </span>
@@ -224,13 +201,10 @@ export default function Dashboard() {
         onProductAdded={handleAddProduct}
       />
 
-      <InfoModal
-        isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
-        title={infoModalData.title}
-        message={infoModalData.message}
-        type={infoModalData.type}
-        icon={infoModalData.icon}
+      <QuickSaleModal
+        isOpen={showQuickSaleModal}
+        onClose={() => setShowQuickSaleModal(false)}
+        onSaleCompleted={handleSaleCompleted}
       />
     </div>
   )

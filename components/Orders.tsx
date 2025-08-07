@@ -15,139 +15,160 @@ import {
   XCircle,
   Download,
   Upload,
-  Receipt
+  Receipt,
+  DollarSign,
+  CreditCard
 } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
 import InvoiceModal from './InvoiceModal'
+import QuickSaleModal from './QuickSaleModal'
 
-interface Order {
+interface Sale {
   id: string
   customer: string
   date: string
+  time: string
   total: number
   status: string
   items: number
-  paymentStatus: string
+  paymentMethod: string
+  cashier: string
   notes?: string
-  orderItems?: any[]
+  saleItems?: any[]
 }
 
-const initialOrders: Order[] = [
+const initialSales: Sale[] = [
   {
-    id: 'ORD001',
-    customer: 'John Doe',
+    id: 'SALE001',
+    customer: 'Client régulier',
     date: '2023-10-26',
+    time: '14:30',
     total: 125.00,
-    status: 'Livré',
+    status: 'Payé',
     items: 3,
-    paymentStatus: 'Payé',
-    notes: 'Livraison express demandée'
+    paymentMethod: 'Carte bancaire',
+    cashier: 'Marie Dupont',
+    notes: 'Code promo WELCOME10 appliqué'
   },
   {
-    id: 'ORD002',
-    customer: 'Jane Smith',
-    date: '2023-10-25',
+    id: 'SALE002',
+    customer: 'Client occasionnel',
+    date: '2023-10-26',
+    time: '15:45',
     total: 75.00,
-    status: 'Expédié',
+    status: 'Payé',
     items: 2,
-    paymentStatus: 'Payé'
+    paymentMethod: 'Espèces',
+    cashier: 'Jean Martin'
   },
   {
-    id: 'ORD003',
-    customer: 'Robert Johnson',
-    date: '2023-10-24',
+    id: 'SALE003',
+    customer: 'Client professionnel',
+    date: '2023-10-26',
+    time: '16:20',
     total: 210.50,
-    status: 'En attente',
+    status: 'Payé',
     items: 5,
-    paymentStatus: 'En attente',
-    notes: 'Commande urgente'
+    paymentMethod: 'Chèque',
+    cashier: 'Marie Dupont',
+    notes: 'Facture demandée'
   },
   {
-    id: 'ORD004',
-    customer: 'Emily White',
-    date: '2023-10-23',
+    id: 'SALE004',
+    customer: 'Client express',
+    date: '2023-10-26',
+    time: '17:10',
     total: 45.00,
-    status: 'Livré',
+    status: 'Payé',
     items: 1,
-    paymentStatus: 'Payé'
+    paymentMethod: 'Carte bancaire',
+    cashier: 'Jean Martin'
   },
   {
-    id: 'ORD005',
-    customer: 'Michael Brown',
-    date: '2023-10-22',
+    id: 'SALE005',
+    customer: 'Client mécontent',
+    date: '2023-10-25',
+    time: '11:30',
     total: 300.00,
-    status: 'Annulé',
+    status: 'Remboursé',
     items: 4,
-    paymentStatus: 'Remboursé',
-    notes: 'Annulé par le client'
+    paymentMethod: 'Carte bancaire',
+    cashier: 'Marie Dupont',
+    notes: 'Produit défectueux - remboursement complet'
   },
   {
-    id: 'ORD006',
-    customer: 'Sarah Davis',
-    date: '2023-10-21',
+    id: 'SALE006',
+    customer: 'Client fidèle',
+    date: '2023-10-25',
+    time: '13:15',
     total: 99.99,
-    status: 'Expédié',
+    status: 'Payé',
     items: 2,
-    paymentStatus: 'Payé'
+    paymentMethod: 'Espèces',
+    cashier: 'Jean Martin'
   }
 ]
 
-const statuses = ['Tous les statuts', 'En attente', 'Expédié', 'Livré', 'Annulé']
-const customers = ['Tous les clients', 'John Doe', 'Jane Smith', 'Robert Johnson', 'Emily White', 'Michael Brown', 'Sarah Davis']
+const statuses = ['Tous les statuts', 'Payé', 'En cours', 'Remboursé', 'Annulé']
+const paymentMethods = ['Toutes les méthodes', 'Espèces', 'Carte bancaire', 'Chèque', 'Virement']
+const cashiers = ['Tous les caissiers', 'Marie Dupont', 'Jean Martin', 'Sophie Bernard']
 
-export default function Orders() {
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
+export default function Sales() {
+  const [sales, setSales] = useState<Sale[]>(initialSales)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('Tous les statuts')
-  const [selectedCustomer, setSelectedCustomer] = useState('Tous les clients')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Toutes les méthodes')
+  const [selectedCashier, setSelectedCashier] = useState('Tous les caissiers')
   const [selectedDate, setSelectedDate] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = selectedStatus === 'Tous les statuts' || order.status === selectedStatus
-    const matchesCustomer = selectedCustomer === 'Tous les clients' || order.customer === selectedCustomer
-    const matchesDate = !selectedDate || order.date === selectedDate
-    
-    return matchesSearch && matchesStatus && matchesCustomer && matchesDate
+  const filteredSales = sales.filter(sale => {
+    const matchesSearch = sale.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         sale.customer.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = selectedStatus === 'Tous les statuts' || sale.status === selectedStatus
+    const matchesPaymentMethod = selectedPaymentMethod === 'Toutes les méthodes' || sale.paymentMethod === selectedPaymentMethod
+    const matchesCashier = selectedCashier === 'Tous les caissiers' || sale.cashier === selectedCashier
+    const matchesDate = !selectedDate || sale.date === selectedDate
+
+    return matchesSearch && matchesStatus && matchesPaymentMethod && matchesCashier && matchesDate
   })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Livré':
-        return 'bg-green-100 text-green-700'
-      case 'Expédié':
-        return 'bg-blue-100 text-blue-700'
-      case 'En attente':
-        return 'bg-yellow-100 text-yellow-700'
-      case 'Annulé':
-        return 'bg-red-100 text-red-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
+      case 'Payé': return 'bg-green-100 text-green-800'
+      case 'En cours': return 'bg-yellow-100 text-yellow-800'
+      case 'Remboursé': return 'bg-red-100 text-red-800'
+      case 'Annulé': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Livré':
-        return <CheckCircle className="w-4 h-4" />
-      case 'Expédié':
-        return <Truck className="w-4 h-4" />
-      case 'En attente':
-        return <Clock className="w-4 h-4" />
-      case 'Annulé':
-        return <XCircle className="w-4 h-4" />
-      default:
-        return <Clock className="w-4 h-4" />
+      case 'Payé': return <CheckCircle className="w-4 h-4" />
+      case 'En cours': return <Clock className="w-4 h-4" />
+      case 'Remboursé': return <XCircle className="w-4 h-4" />
+      case 'Annulé': return <XCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
+    }
+  }
+
+  const getPaymentMethodIcon = (method: string) => {
+    switch (method) {
+      case 'Espèces': return <DollarSign className="w-4 h-4" />
+      case 'Carte bancaire': return <CreditCard className="w-4 h-4" />
+      case 'Chèque': return <DollarSign className="w-4 h-4" />
+      case 'Virement': return <DollarSign className="w-4 h-4" />
+      default: return <DollarSign className="w-4 h-4" />
     }
   }
 
@@ -157,77 +178,80 @@ export default function Orders() {
     }
   }
 
-  const handleAddOrder = () => {
+  const handleAddSale = () => {
+    setShowQuickSaleModal(true)
+  }
+
+  const handleSaleCompleted = (sale: any) => {
+    // Ajouter la nouvelle vente à la liste
+    setSales(prev => [sale, ...prev])
+    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${sale.total.toFixed(2)}`)
+  }
+
+  const handleEditSale = (sale: Sale) => {
+    setSelectedSale(sale)
     setInfoModalData({
-      title: 'Nouvelle commande',
-      message: 'Fonctionnalité de création de commande\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
+      title: 'Modifier la vente',
+      message: `Fonctionnalité d'édition pour la vente ${sale.id}\n\nCette fonctionnalité sera implémentée dans la prochaine version.`,
       type: 'info',
       icon: 'cart'
     })
     setShowInfoModal(true)
   }
 
-  const handleEditOrder = (order: Order) => {
-    setSelectedOrder(order)
-    setInfoModalData({
-      title: 'Modifier la commande',
-      message: `Fonctionnalité d'édition pour la commande ${order.id}\n\nCette fonctionnalité sera implémentée dans la prochaine version.`,
-      type: 'info',
-      icon: 'cart'
-    })
-    setShowInfoModal(true)
-  }
-
-  const handleDeleteOrder = (order: Order) => {
-    setSelectedOrder(order)
+  const handleDeleteSale = (sale: Sale) => {
+    setSelectedSale(sale)
     setShowDeleteModal(true)
   }
 
   const confirmDelete = () => {
-    if (selectedOrder) {
-      setOrders(prev => prev.filter(o => o.id !== selectedOrder.id))
-      showToast('success', 'Commande supprimée', `La commande "${selectedOrder.id}" a été supprimée avec succès.`)
-      setSelectedOrder(null)
+    if (selectedSale) {
+      setSales(prev => prev.filter(s => s.id !== selectedSale.id))
+      showToast('success', 'Vente supprimée', `La vente "${selectedSale.id}" a été supprimée avec succès.`)
+      setSelectedSale(null)
+      setShowDeleteModal(false)
     }
   }
 
-  const handleViewOrder = (order: Order) => {
-    setSelectedOrder(order)
+  const handleViewSale = (sale: Sale) => {
+    setSelectedSale(sale)
     setInfoModalData({
-      title: 'Détails de la commande',
-      message: `ID: ${order.id}\nClient: ${order.customer}\nDate: ${order.date}\nArticles: ${order.items} items\nTotal: €${order.total.toFixed(2)}\nStatut: ${order.status}\nPaiement: ${order.paymentStatus}${order.notes ? `\n\nNotes: ${order.notes}` : ''}`,
+      title: 'Détails de la vente',
+      message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
       type: 'info',
       icon: 'cart'
     })
     setShowInfoModal(true)
   }
 
-  const handleViewInvoice = (order: Order) => {
-    setSelectedOrder(order)
+  const handleViewInvoice = (sale: Sale) => {
+    setSelectedSale(sale)
     setShowInvoiceModal(true)
   }
 
   const handleExport = () => {
     const csvContent = [
-      ['ID', 'Client', 'Date', 'Total', 'Statut', 'Articles', 'Paiement'],
-      ...filteredOrders.map(o => [o.id, o.customer, o.date, o.total, o.status, o.items, o.paymentStatus])
+      ['ID', 'Client', 'Date', 'Heure', 'Total', 'Statut', 'Articles', 'Méthode de paiement', 'Caissier'],
+      ...sales.map(s => [s.id, s.customer, s.date, s.time, s.total.toString(), s.status, s.items.toString(), s.paymentMethod, s.cashier])
     ].map(row => row.join(',')).join('\n')
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `commandes_${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
-    
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'ventes.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
     showToast('success', 'Export terminé', 'Le fichier CSV a été téléchargé avec succès.')
   }
 
   const handleImport = () => {
     setInfoModalData({
-      title: 'Import de commandes',
-      message: 'Fonctionnalité d\'import\n\nSélectionnez un fichier CSV pour importer des commandes.\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
+      title: 'Import de ventes',
+      message: 'Fonctionnalité d\'import\n\nSélectionnez un fichier CSV pour importer des ventes.\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
       type: 'info',
       icon: 'cart'
     })
@@ -236,193 +260,190 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
-          <p className="text-gray-600">Gérez et suivez vos commandes</p>
+          <h1 className="text-2xl font-bold text-gray-900">Ventes</h1>
+          <p className="text-gray-600">Gérez vos transactions en magasin</p>
         </div>
         <div className="flex space-x-3">
-          <button 
+          <button
+            onClick={handleAddSale}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouvelle vente</span>
+          </button>
+          <button
             onClick={handleImport}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
           >
             <Upload className="w-4 h-4" />
             <span>Importer</span>
           </button>
-          <button 
+          <button
             onClick={handleExport}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
           >
             <Download className="w-4 h-4" />
             <span>Exporter</span>
-          </button>
-          <button 
-            onClick={handleAddOrder}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouvelle commande</span>
           </button>
         </div>
       </div>
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Rechercher des commandes..."
+                placeholder="Rechercher des ventes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-          >
-            <Filter className="w-4 h-4" />
-            <span>Filtres</span>
-          </button>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Filtres</span>
+            </button>
+          </div>
         </div>
 
-        {/* Filters */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {statuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedCustomer}
-                onChange={(e) => setSelectedCustomer(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {customers.map(customer => (
-                  <option key={customer} value={customer}>{customer}</option>
-                ))}
-              </select>
-
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {statuses.map(status => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Méthode de paiement</label>
+                <select
+                  value={selectedPaymentMethod}
+                  onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {paymentMethods.map(method => (
+                    <option key={method} value={method}>{method}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Caissier</label>
+                <select
+                  value={selectedCashier}
+                  onChange={(e) => setSelectedCashier(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {cashiers.map(cashier => (
+                    <option key={cashier} value={cashier}>{cashier}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Sales Table */}
+      <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Liste des Commandes</h3>
+          <h2 className="text-lg font-semibold text-gray-900">Historique des Ventes</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Commande
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Client
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Articles
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Paiement
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Statut
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date/Heure</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paiement</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+              {filteredSales.map((sale) => (
+                <tr key={sale.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                        <ShoppingCart className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{order.id}</div>
-                      </div>
-                    </div>
+                    <div className="text-sm font-medium text-gray-900">{sale.id}</div>
+                    <div className="text-sm text-gray-500">{sale.items} articles</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.customer}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{sale.customer}</div>
+                    <div className="text-sm text-gray-500">Caissier: {sale.cashier}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.date}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{sale.date}</div>
+                    <div className="text-sm text-gray-500">{sale.time}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.items} items
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    €{order.total.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.paymentStatus}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    €{sale.total.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(order.status)}
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                        {order.status}
+                      {getPaymentMethodIcon(sale.paymentMethod)}
+                      <span className="text-sm text-gray-900">{sale.paymentMethod}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(sale.status)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(sale.status)}`}>
+                        {sale.status}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
                       <button
-                        onClick={() => handleViewOrder(order)}
+                        onClick={() => handleViewSale(sale)}
                         className="text-blue-600 hover:text-blue-900"
                         title="Voir les détails"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleViewInvoice(order)}
+                        onClick={() => handleViewInvoice(sale)}
                         className="text-purple-600 hover:text-purple-900"
-                        title="Voir la facture"
+                        title="Voir le reçu"
                       >
                         <Receipt className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleEditOrder(order)}
+                        onClick={() => handleEditSale(sale)}
                         className="text-green-600 hover:text-green-900"
                         title="Modifier"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteOrder(order)}
+                        onClick={() => handleDeleteSale(sale)}
                         className="text-red-600 hover:text-red-900"
                         title="Supprimer"
                       >
@@ -437,22 +458,31 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Empty State */}
-      {filteredOrders.length === 0 && (
-        <div className="text-center py-12">
-          <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">Aucune commande trouvée</h3>
-          <p className="text-gray-500">Essayez de modifier vos filtres ou créez une nouvelle commande.</p>
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-700">
+          Affichage de {filteredSales.length} ventes sur {sales.length} total
         </div>
-      )}
+        <div className="flex space-x-2">
+          <button className="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Précédent
+          </button>
+          <button className="px-3 py-1 text-sm text-white bg-blue-600 border border-blue-600 rounded">
+            1
+          </button>
+          <button className="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Suivant
+          </button>
+        </div>
+      </div>
 
       {/* Modals */}
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDelete}
-        title="Supprimer la commande"
-        message={`Êtes-vous sûr de vouloir supprimer la commande "${selectedOrder?.id}" ?\n\nCette action est irréversible.`}
+        title="Supprimer la vente"
+        message={`Êtes-vous sûr de vouloir supprimer la vente "${selectedSale?.id}" ?\n\nCette action est irréversible.`}
         type="danger"
         confirmText="Supprimer"
         cancelText="Annuler"
@@ -470,7 +500,13 @@ export default function Orders() {
       <InvoiceModal
         isOpen={showInvoiceModal}
         onClose={() => setShowInvoiceModal(false)}
-        order={selectedOrder}
+        order={selectedSale}
+      />
+
+      <QuickSaleModal
+        isOpen={showQuickSaleModal}
+        onClose={() => setShowQuickSaleModal(false)}
+        onSaleCompleted={handleSaleCompleted}
       />
     </div>
   )
