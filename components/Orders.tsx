@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   ShoppingCart, 
   Search, 
@@ -21,8 +21,10 @@ import {
 } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
-import InvoiceModal from './InvoiceModal'
+import ReceiptModal from './ReceiptModal'
 import QuickSaleModal from './QuickSaleModal'
+import EditSaleModal from './EditSaleModal'
+import SaleDetailsModal from './SaleDetailsModal'
 
 interface Sale {
   id: string
@@ -36,87 +38,52 @@ interface Sale {
   cashier: string
   notes?: string
   saleItems?: any[]
+  // Additional fields for EditSaleModal
+  customerId?: string
+  totalAmount?: number
+  discountAmount?: number
+  taxAmount?: number
+  finalAmount?: number
+  paymentStatus?: string
+  saleDate?: string
+  // Items for EditSaleModal
+  items?: Array<{
+    id: string
+    productId: string
+    productName: string
+    quantity: number
+    unitPrice: number
+    discount: number
+    totalPrice: number
+  }>
 }
 
-const initialSales: Sale[] = [
-  {
-    id: 'SALE001',
-    customer: 'Client régulier',
-    date: '2023-10-26',
-    time: '14:30',
-    total: 125.00,
-    status: 'Payé',
-    items: 3,
-    paymentMethod: 'Carte bancaire',
-    cashier: 'Marie Dupont',
-    notes: 'Code promo WELCOME10 appliqué'
-  },
-  {
-    id: 'SALE002',
-    customer: 'Client occasionnel',
-    date: '2023-10-26',
-    time: '15:45',
-    total: 75.00,
-    status: 'Payé',
-    items: 2,
-    paymentMethod: 'Espèces',
-    cashier: 'Jean Martin'
-  },
-  {
-    id: 'SALE003',
-    customer: 'Client professionnel',
-    date: '2023-10-26',
-    time: '16:20',
-    total: 210.50,
-    status: 'Payé',
-    items: 5,
-    paymentMethod: 'Chèque',
-    cashier: 'Marie Dupont',
-    notes: 'Facture demandée'
-  },
-  {
-    id: 'SALE004',
-    customer: 'Client express',
-    date: '2023-10-26',
-    time: '17:10',
-    total: 45.00,
-    status: 'Payé',
-    items: 1,
-    paymentMethod: 'Carte bancaire',
-    cashier: 'Jean Martin'
-  },
-  {
-    id: 'SALE005',
-    customer: 'Client mécontent',
-    date: '2023-10-25',
-    time: '11:30',
-    total: 300.00,
-    status: 'Remboursé',
-    items: 4,
-    paymentMethod: 'Carte bancaire',
-    cashier: 'Marie Dupont',
-    notes: 'Produit défectueux - remboursement complet'
-  },
-  {
-    id: 'SALE006',
-    customer: 'Client fidèle',
-    date: '2023-10-25',
-    time: '13:15',
-    total: 99.99,
-    status: 'Payé',
-    items: 2,
-    paymentMethod: 'Espèces',
-    cashier: 'Jean Martin'
-  }
-]
+// Sales will be loaded from database
 
 const statuses = ['Tous les statuts', 'Payé', 'En cours', 'Remboursé', 'Annulé']
 const paymentMethods = ['Toutes les méthodes', 'Espèces', 'Carte bancaire', 'Chèque', 'Virement']
 const cashiers = ['Tous les caissiers', 'Marie Dupont', 'Jean Martin', 'Sophie Bernard']
 
 export default function Sales() {
-  const [sales, setSales] = useState<Sale[]>(initialSales)
+  const [sales, setSales] = useState<Sale[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    loadSales()
+  }, [])
+
+  const loadSales = async () => {
+    try {
+      const response = await fetch('/api/sales')
+      const data = await response.json()
+      setSales(data)
+    } catch (error) {
+      console.error('Error loading sales:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
   const [selectedStatus, setSelectedStatus] = useState('Tous les statuts')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Toutes les méthodes')
   const [selectedCashier, setSelectedCashier] = useState('Tous les caissiers')
@@ -127,8 +94,10 @@ export default function Sales() {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [showReceiptModal, setShowReceiptModal] = useState(false)
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
+  const [showEditSaleModal, setShowEditSaleModal] = useState(false)
+  const [showSaleDetailsModal, setShowSaleDetailsModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
 
   const filteredSales = sales.filter(sale => {
@@ -183,20 +152,30 @@ export default function Sales() {
   }
 
   const handleSaleCompleted = (sale: any) => {
-    // Ajouter la nouvelle vente à la liste
-    setSales(prev => [sale, ...prev])
-    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${sale.total.toFixed(2)}`)
+    // Refresh sales list from database
+    loadSales()
+    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${(sale.total || 0).toFixed(2)}`)
   }
 
-  const handleEditSale = (sale: Sale) => {
-    setSelectedSale(sale)
-    setInfoModalData({
-      title: 'Modifier la vente',
-      message: `Fonctionnalité d'édition pour la vente ${sale.id}\n\nCette fonctionnalité sera implémentée dans la prochaine version.`,
-      type: 'info',
-      icon: 'cart'
-    })
-    setShowInfoModal(true)
+  const handleEditSale = async (sale: Sale) => {
+    try {
+      // Load detailed sale information
+      const response = await fetch(`/api/sales/${sale.id}`)
+      if (response.ok) {
+        const detailedSale = await response.json()
+        setSelectedSale(detailedSale)
+        setShowEditSaleModal(true)
+      } else {
+        // Fallback to basic sale data
+        setSelectedSale(sale)
+        setShowEditSaleModal(true)
+      }
+    } catch (error) {
+      console.error('Error loading sale details:', error)
+      // Fallback to basic sale data
+      setSelectedSale(sale)
+      setShowEditSaleModal(true)
+    }
   }
 
   const handleDeleteSale = (sale: Sale) => {
@@ -213,20 +192,40 @@ export default function Sales() {
     }
   }
 
-  const handleViewSale = (sale: Sale) => {
-    setSelectedSale(sale)
-    setInfoModalData({
-      title: 'Détails de la vente',
-      message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
-      type: 'info',
-      icon: 'cart'
-    })
-    setShowInfoModal(true)
+  const handleViewSale = async (sale: Sale) => {
+    // Fetch detailed sale information including items
+    try {
+      const response = await fetch(`/api/sales/${sale.id}`)
+      if (response.ok) {
+        const detailedSale = await response.json()
+        setSelectedSale(detailedSale)
+        setShowSaleDetailsModal(true)
+      } else {
+        // Fallback to basic info if detailed fetch fails
+        setInfoModalData({
+          title: 'Détails de la vente',
+          message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+          type: 'info',
+          icon: 'cart'
+        })
+        setShowInfoModal(true)
+      }
+    } catch (error) {
+      console.error('Error fetching sale details:', error)
+      // Fallback to basic info
+      setInfoModalData({
+        title: 'Détails de la vente',
+        message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+        type: 'info',
+        icon: 'cart'
+      })
+      setShowInfoModal(true)
+    }
   }
 
-  const handleViewInvoice = (sale: Sale) => {
+  const handleViewReceipt = (sale: Sale) => {
     setSelectedSale(sale)
-    setShowInvoiceModal(true)
+    setShowReceiptModal(true)
   }
 
   const handleExport = () => {
@@ -403,7 +402,7 @@ export default function Sales() {
                     <div className="text-sm text-gray-500">{sale.time}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    €{sale.total.toFixed(2)}
+                    €{(sale.total || 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
@@ -429,7 +428,7 @@ export default function Sales() {
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleViewInvoice(sale)}
+                        onClick={() => handleViewReceipt(sale)}
                         className="text-purple-600 hover:text-purple-900"
                         title="Voir le reçu"
                       >
@@ -497,16 +496,29 @@ export default function Sales() {
         icon={infoModalData.icon}
       />
 
-      <InvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        order={selectedSale}
+      <ReceiptModal
+        isOpen={showReceiptModal}
+        onClose={() => setShowReceiptModal(false)}
+        sale={selectedSale}
       />
 
       <QuickSaleModal
         isOpen={showQuickSaleModal}
         onClose={() => setShowQuickSaleModal(false)}
         onSaleCompleted={handleSaleCompleted}
+      />
+
+      <EditSaleModal
+        isOpen={showEditSaleModal}
+        onClose={() => setShowEditSaleModal(false)}
+        sale={selectedSale}
+        onSaleUpdated={loadSales}
+      />
+
+      <SaleDetailsModal
+        isOpen={showSaleDetailsModal}
+        onClose={() => setShowSaleDetailsModal(false)}
+        sale={selectedSale}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Printer, Download, CreditCard, DollarSign, Search, Percent, Tag } from 'lucide-react'
 
 interface InvoiceItem {
@@ -55,30 +55,14 @@ const paymentMethods = [
   { id: 'transfer', name: 'Virement', icon: CreditCard }
 ]
 
-// Base de données des produits (simulation)
-const productsDatabase: Product[] = [
-  { id: '1', name: 'Souris Sans Fil X2', sku: 'MS-001', price: 25.00, stock: 50, category: 'Électronique', supplier: 'TechCorp', status: 'En stock' },
-  { id: '2', name: 'Clavier Ergonomique', sku: 'KB-002', price: 75.00, stock: 30, category: 'Accessoires', supplier: 'ErgoGear', status: 'En stock' },
-  { id: '3', name: 'Écran 24" Full HD', sku: 'MN-003', price: 150.00, stock: 20, category: 'Électronique', supplier: 'ViewTech', status: 'En stock' },
-  { id: '4', name: 'Casque Gaming Pro', sku: 'HD-004', price: 89.99, stock: 25, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
-  { id: '5', name: 'Webcam HD 1080p', sku: 'WC-005', price: 45.00, stock: 40, category: 'Électronique', supplier: 'TechCorp', status: 'En stock' },
-  { id: '6', name: 'Disque Dur Externe 1TB', sku: 'HD-006', price: 65.00, stock: 35, category: 'Stockage', supplier: 'DataVault', status: 'En stock' },
-  { id: '7', name: 'Clé USB 32GB', sku: 'USB-007', price: 12.50, stock: 100, category: 'Stockage', supplier: 'DataVault', status: 'En stock' },
-  { id: '8', name: 'Souris Gaming RGB', sku: 'MS-008', price: 35.00, stock: 45, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
-  { id: '9', name: 'Clavier Mécanique', sku: 'KB-009', price: 120.00, stock: 15, category: 'Gaming', supplier: 'GameSound', status: 'En stock' },
-  { id: '10', name: 'Haut-parleurs Bluetooth', sku: 'SP-010', price: 55.00, stock: 30, category: 'Audio', supplier: 'GameSound', status: 'En stock' }
-]
-
-// Base de données des codes promo (simulation)
-const promoDatabase: PromoCode[] = [
-  { code: 'WELCOME10', type: 'percentage', value: 10, minAmount: 50, maxUses: 100, usedCount: 45, validUntil: '2025-12-31', description: '10% de réduction pour nouveaux clients' },
-  { code: 'SUMMER20', type: 'percentage', value: 20, minAmount: 100, maxUses: 50, usedCount: 23, validUntil: '2025-08-31', description: '20% de réduction été' },
-  { code: 'FREESHIP', type: 'fixed', value: 15, minAmount: 75, maxUses: 200, usedCount: 89, validUntil: '2025-12-31', description: 'Livraison gratuite (15€)' },
-  { code: 'FLASH50', type: 'percentage', value: 50, minAmount: 200, maxUses: 10, usedCount: 8, validUntil: '2025-06-30', description: '50% de réduction flash' },
-  { code: 'LOYALTY5', type: 'percentage', value: 5, minAmount: 25, maxUses: 500, usedCount: 156, validUntil: '2025-12-31', description: '5% fidélité' }
-]
+// Database state will be loaded dynamically
 
 export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalProps) {
+  // Database state
+  const [productsDatabase, setProductsDatabase] = useState<Product[]>([])
+  const [promoDatabase, setPromoDatabase] = useState<PromoCode[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
   const [items, setItems] = useState<InvoiceItem[]>([
     {
       id: '1',
@@ -121,6 +105,32 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
   const [promoSuccess, setPromoSuccess] = useState('')
 
   const printRef = useRef<HTMLDivElement>(null)
+
+  // Load data from database when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadData()
+    }
+  }, [isOpen])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch products
+      const productsResponse = await fetch('/api/products')
+      const products = await productsResponse.json()
+      setProductsDatabase(products)
+
+      // Fetch promo codes
+      const promosResponse = await fetch('/api/promocodes')
+      const promos = await promosResponse.json()
+      setPromoDatabase(promos)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const calculateSubtotal = () => {
     return items.reduce((sum, item) => {
@@ -194,7 +204,7 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
   }
 
   // Appliquer un code promo
-  const applyPromoCode = () => {
+  const applyPromoCode = async () => {
     setPromoError('')
     setPromoSuccess('')
 
@@ -203,35 +213,32 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
       return
     }
 
-    const promo = promoDatabase.find(p => p.code.toUpperCase() === promoCode.toUpperCase())
-    
-    if (!promo) {
-      setPromoError('Code promo invalide')
-      return
-    }
+    try {
+      const response = await fetch('/api/promocodes/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: promoCode,
+          amount: calculateSubtotal(),
+        }),
+      })
 
-    // Vérifier la date de validité
-    if (new Date() > new Date(promo.validUntil)) {
-      setPromoError('Code promo expiré')
-      return
-    }
+      const data = await response.json()
 
-    // Vérifier le nombre d'utilisations
-    if (promo.usedCount >= promo.maxUses) {
-      setPromoError('Code promo épuisé')
-      return
-    }
+      if (!response.ok) {
+        setPromoError(data.error || 'Code promo invalide')
+        return
+      }
 
-    // Vérifier le montant minimum
-    const subtotal = calculateSubtotal()
-    if (subtotal < promo.minAmount) {
-      setPromoError(`Montant minimum requis: €${promo.minAmount}`)
-      return
+      setAppliedPromo(data.promoCode)
+      setPromoSuccess(`Code promo appliqué: ${data.promoCode.description}`)
+      setPromoCode('')
+    } catch (error) {
+      console.error('Error validating promo code:', error)
+      setPromoError('Erreur lors de la validation du code promo')
     }
-
-    setAppliedPromo(promo)
-    setPromoSuccess(`Code promo appliqué: ${promo.description}`)
-    setPromoCode('')
   }
 
   // Supprimer le code promo appliqué

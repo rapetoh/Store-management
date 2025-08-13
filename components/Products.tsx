@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search, Filter, Plus, Eye, Edit, Trash2, Download, Upload
 } from 'lucide-react'
@@ -8,106 +8,56 @@ import AddProductModal from './AddProductModal'
 import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
 import EditProductModal from './EditProductModal'
+import ImportProductsModal from './ImportProductsModal'
 
 interface Product {
   id: string
   name: string
-  sku: string
-  category: string
-  supplier: string
+  sku?: string
+  category?: string | { id: string; name: string; description?: string }
+  categoryId?: string
+  supplier?: string
   stock: number
   price: number
-  status: string
+  status?: string
   description?: string
-  alertLevel: number
+  alertLevel?: number
+  minStock?: number
+  barcode?: string
+  isActive?: boolean
 }
 
-const categories = ['Électronique', 'Accessoires', 'Bureau', 'Gaming', 'Stockage', 'Audio', 'Autres']
+const categories = ['Alimentation', 'Boulangerie', 'Fruits', 'Boissons', 'Snacks', 'Confiserie']
 const suppliers = ['TechCorp', 'ErgoGear', 'ConnectAll', 'GameSound', 'DataVault', 'ViewTech', 'AudioMax']
 
-const dummyProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Souris Sans Fil X2',
-    sku: 'WMX2-001',
-    category: 'Électronique',
-    supplier: 'TechCorp',
-    stock: 50,
-    price: 25.00,
-    status: 'En stock',
-    description: 'Souris sans fil haute précision avec capteur optique avancé',
-    alertLevel: 10
-  },
-  {
-    id: '2',
-    name: 'Clavier Ergonomique',
-    sku: 'EK-005',
-    category: 'Accessoires',
-    supplier: 'ErgoGear',
-    stock: 8,
-    price: 75.00,
-    status: 'Stock faible',
-    description: 'Clavier ergonomique pour une frappe confortable',
-    alertLevel: 15
-  },
-  {
-    id: '3',
-    name: 'Hub USB-C',
-    sku: 'UCH-010',
-    category: 'Électronique',
-    supplier: 'ConnectAll',
-    stock: 12,
-    price: 30.00,
-    status: 'Stock faible',
-    description: 'Hub USB-C avec 4 ports et lecteur de carte',
-    alertLevel: 10
-  },
-  {
-    id: '4',
-    name: 'Casque Gaming Pro',
-    sku: 'GHP-003',
-    category: 'Gaming',
-    supplier: 'GameSound',
-    stock: 3,
-    price: 120.00,
-    status: 'Stock critique',
-    description: 'Casque gaming avec micro intégré et son surround',
-    alertLevel: 5
-  },
-  {
-    id: '5',
-    name: 'SSD Portable 1TB',
-    sku: 'SSD1TB-002',
-    category: 'Stockage',
-    supplier: 'DataVault',
-    stock: 0,
-    price: 99.00,
-    status: 'Rupture',
-    description: 'SSD portable haute vitesse 1TB',
-    alertLevel: 10
-  },
-  {
-    id: '6',
-    name: 'Webcam HD',
-    sku: 'WCHD-007',
-    category: 'Électronique',
-    supplier: 'TechCorp',
-    stock: 5,
-    price: 45.00,
-    status: 'Stock critique',
-    description: 'Webcam HD 1080p avec micro intégré',
-    alertLevel: 8
-  }
-]
+// Products will be loaded from database
 
 export default function Products() {
-  const [products, setProducts] = useState<Product[]>(dummyProducts)
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    loadProducts()
+  }, [])
+
+  const loadProducts = async () => {
+    try {
+      const response = await fetch('/api/products')
+      const data = await response.json()
+      setProducts(data)
+    } catch (error) {
+      console.error('Error loading products:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
   const [selectedCategory, setSelectedCategory] = useState('Toutes les catégories')
   const [selectedStatus, setSelectedStatus] = useState('Tous les statuts')
   const [showFilters, setShowFilters] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   // Modal states
@@ -123,7 +73,8 @@ export default function Products() {
   }
 
   const handleAddProduct = (newProduct: Product) => {
-    setProducts(prev => [newProduct, ...prev])
+    // Reload products from database to ensure consistency
+    loadProducts()
     showToast('success', 'Produit ajouté', `Le produit "${newProduct.name}" a été ajouté avec succès !`)
   }
 
@@ -133,7 +84,8 @@ export default function Products() {
   }
 
   const handleUpdateProduct = (updatedProduct: Product) => {
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
+    // Reload products from database to ensure consistency
+    loadProducts()
     setShowEditModal(false)
     setSelectedProduct(null)
     showToast('success', 'Produit modifié', `Le produit "${updatedProduct.name}" a été modifié avec succès !`)
@@ -144,20 +96,35 @@ export default function Products() {
     setShowDeleteModal(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedProduct) {
-      setProducts(prev => prev.filter(p => p.id !== selectedProduct.id))
-      showToast('success', 'Produit supprimé', `Le produit "${selectedProduct.name}" a été supprimé avec succès.`)
-      setSelectedProduct(null)
-      setShowDeleteModal(false)
+      try {
+        const response = await fetch(`/api/products/${selectedProduct.id}`, {
+          method: 'DELETE',
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to delete product')
+        }
+
+        // Reload products from database to ensure consistency
+        loadProducts()
+        showToast('success', 'Produit supprimé', `Le produit "${selectedProduct.name}" a été supprimé avec succès.`)
+        setSelectedProduct(null)
+        setShowDeleteModal(false)
+      } catch (error) {
+        console.error('Error deleting product:', error)
+        showToast('error', 'Erreur', 'Erreur lors de la suppression du produit')
+      }
     }
   }
 
   const handleViewProduct = (product: Product) => {
     setSelectedProduct(product)
+    const categoryName = typeof product.category === 'object' ? product.category?.name : product.category
     setInfoModalData({
       title: 'Détails du produit',
-      message: `Nom: ${product.name}\nSKU: ${product.sku}\nCatégorie: ${product.category}\nFournisseur: ${product.supplier}\nStock: ${product.stock} unités\nPrix: €${product.price.toFixed(2)}\nStatut: ${product.status}\nNiveau d'alerte: ${product.alertLevel} unités${product.description ? `\n\nDescription: ${product.description}` : ''}`,
+      message: `Nom: ${product.name}\nSKU: ${product.sku || 'N/A'}\nCatégorie: ${categoryName || 'Sans catégorie'}\nFournisseur: ${product.supplier || 'N/A'}\nStock: ${product.stock} unités\nPrix: €${product.price.toFixed(2)}\nStatut: ${getProductStatus(product)}\nNiveau d'alerte: ${product.minStock || 5} unités${product.description ? `\n\nDescription: ${product.description}` : ''}`,
       type: 'info',
       icon: 'package'
     })
@@ -167,7 +134,10 @@ export default function Products() {
   const handleExport = () => {
     const csvContent = [
       ['Nom', 'SKU', 'Catégorie', 'Fournisseur', 'Stock', 'Prix', 'Statut'],
-      ...products.map(p => [p.name, p.sku, p.category, p.supplier, p.stock.toString(), p.price.toString(), p.status])
+      ...products.map(p => {
+        const categoryName = typeof p.category === 'object' ? p.category?.name : p.category
+        return [p.name, p.sku || 'N/A', categoryName || 'Sans catégorie', p.supplier || 'N/A', p.stock.toString(), p.price.toString(), getProductStatus(p)]
+      })
     ].map(row => row.join(',')).join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -184,23 +154,30 @@ export default function Products() {
   }
 
   const handleImport = () => {
-    setInfoModalData({
-      title: 'Import de produits',
-      message: 'Fonctionnalité d\'import\n\nSélectionnez un fichier CSV pour importer des produits.\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
-      type: 'info',
-      icon: 'package'
-    })
-    setShowInfoModal(true)
+    setShowImportModal(true)
+  }
+
+  const handleImportComplete = () => {
+    loadProducts()
+    showToast('success', 'Import terminé', 'Les produits ont été importés avec succès !')
   }
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'Toutes les catégories' || product.category === selectedCategory
-    const matchesStatus = selectedStatus === 'Tous les statuts' || product.status === selectedStatus
+                         (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+    const categoryName = typeof product.category === 'object' ? product.category?.name : product.category
+    const matchesCategory = selectedCategory === 'Toutes les catégories' || categoryName === selectedCategory
+    const matchesStatus = selectedStatus === 'Tous les statuts' || getProductStatus(product) === selectedStatus
     
     return matchesSearch && matchesCategory && matchesStatus
   })
+
+  const getProductStatus = (product: Product) => {
+    if (product.stock === 0) return 'Rupture'
+    if (product.stock <= (product.minStock || 5)) return 'Stock critique'
+    if (product.stock <= (product.minStock || 5) * 2) return 'Stock faible'
+    return 'En stock'
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -322,19 +299,34 @@ export default function Products() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    Chargement des produits...
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    Aucun produit trouvé
+                  </td>
+                </tr>
+              ) : (
+                filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.category}</div>
+                      <div className="text-sm text-gray-500">
+                        {typeof product.category === 'object' ? product.category?.name || 'Sans catégorie' : product.category || 'Sans catégorie'}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">€{product.price.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
-                      {product.status}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(getProductStatus(product))}`}>
+                      {getProductStatus(product)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -363,7 +355,8 @@ export default function Products() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -404,6 +397,12 @@ export default function Products() {
         message={infoModalData.message}
         type={infoModalData.type}
         icon={infoModalData.icon}
+      />
+
+      <ImportProductsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={handleImportComplete}
       />
     </div>
   )

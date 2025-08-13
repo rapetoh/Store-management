@@ -24,7 +24,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
 
-  const categories = ['Électronique', 'Accessoires', 'Bureau', 'Gaming', 'Autres']
+  const categories = ['Alimentation', 'Boulangerie', 'Fruits', 'Boissons', 'Snacks', 'Confiserie']
   const suppliers = ['TechCorp', 'ErgoGear', 'ConnectAll', 'GameSound', 'DataVault', 'ViewTech']
 
   const generateSKU = () => {
@@ -55,25 +55,49 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
 
     setIsLoading(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const newProduct = {
-      id: Date.now(),
-      name: formData.name,
-      sku: formData.sku,
-      category: formData.category,
-      supplier: formData.supplier,
-      stock: parseInt(formData.stock),
-      price: parseFloat(formData.price),
-      alertLevel: parseInt(formData.alertLevel),
-      description: formData.description,
-      imageUrl: formData.imageUrl,
-      status: parseInt(formData.stock) > parseInt(formData.alertLevel) ? 'En stock' : 'Stock faible'
-    }
+    try {
+      // Get category ID if category is selected
+      let categoryId = undefined
+      if (formData.category) {
+        const categoryResponse = await fetch(`/api/categories?name=${encodeURIComponent(formData.category)}`)
+        if (categoryResponse.ok) {
+          const category = await categoryResponse.json()
+          categoryId = category?.id
+        }
+      }
 
-    onProductAdded(newProduct)
-    handleClose()
+      const productData = {
+        name: formData.name,
+        sku: formData.sku,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.stock),
+        minStock: parseInt(formData.alertLevel),
+        barcode: formData.sku, // Using SKU as barcode for now
+        categoryId: categoryId,
+      }
+
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create product')
+      }
+
+      const newProduct = await response.json()
+      onProductAdded(newProduct)
+      handleClose()
+    } catch (error) {
+      console.error('Error creating product:', error)
+      setErrors({ submit: 'Erreur lors de la création du produit' })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleClose = () => {
@@ -286,6 +310,13 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               placeholder="https://example.com/image.jpg"
             />
           </div>
+
+          {/* Error Display */}
+          {errors.submit && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800 text-sm">{errors.submit}</p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">

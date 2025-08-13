@@ -32,45 +32,29 @@ interface QuickSaleModalProps {
   onSaleCompleted: (sale: any) => void
 }
 
-// Base de données des produits (simulation)
-const productsDatabase = [
-  { id: '1', name: 'Lait 1L', price: 1.20, stock: 50, category: 'Alimentation', barcode: '3017620422003' },
-  { id: '2', name: 'Pain baguette', price: 0.85, stock: 30, category: 'Boulangerie', barcode: '3017620422004' },
-  { id: '3', name: 'Yaourt nature', price: 0.65, stock: 100, category: 'Alimentation', barcode: '3017620422005' },
-  { id: '4', name: 'Pommes Golden', price: 2.50, stock: 25, category: 'Fruits', barcode: '3017620422006' },
-  { id: '5', name: 'Eau minérale 1.5L', price: 0.90, stock: 80, category: 'Boissons', barcode: '3017620422007' },
-  { id: '6', name: 'Chips nature', price: 1.10, stock: 45, category: 'Snacks', barcode: '3017620422008' },
-  { id: '7', name: 'Café moulu 250g', price: 3.50, stock: 20, category: 'Alimentation', barcode: '3017620422009' },
-  { id: '8', name: 'Bananes 1kg', price: 1.80, stock: 35, category: 'Fruits', barcode: '3017620422010' },
-  { id: '9', name: 'Jus d\'orange 1L', price: 1.95, stock: 40, category: 'Boissons', barcode: '3017620422011' },
-  { id: '10', name: 'Chocolat noir', price: 2.20, stock: 60, category: 'Confiserie', barcode: '3017620422012' }
-]
-
-// Codes promo disponibles
-const promoDatabase: PromoCode[] = [
-  { code: 'WELCOME10', type: 'percentage', value: 10, minAmount: 50, maxUses: 100, usedCount: 45, validUntil: '2025-12-31', description: '10% de réduction pour nouveaux clients' },
-  { code: 'SUMMER20', type: 'percentage', value: 20, minAmount: 100, maxUses: 50, usedCount: 23, validUntil: '2025-08-31', description: '20% de réduction été' },
-  { code: 'FREESHIP', type: 'fixed', value: 15, minAmount: 75, maxUses: 200, usedCount: 89, validUntil: '2025-12-31', description: 'Livraison gratuite (15€)' },
-  { code: 'FLASH50', type: 'percentage', value: 50, minAmount: 200, maxUses: 10, usedCount: 8, validUntil: '2025-06-30', description: '50% de réduction flash' },
-  { code: 'LOYALTY5', type: 'percentage', value: 5, minAmount: 25, maxUses: 500, usedCount: 156, validUntil: '2025-12-31', description: '5% fidélité' }
-]
-
-const paymentMethods = [
-  { id: 'cash', name: 'Espèces', icon: DollarSign },
-  { id: 'card', name: 'Carte bancaire', icon: CreditCard },
-  { id: 'check', name: 'Chèque', icon: DollarSign },
-  { id: 'mobile', name: 'Paiement mobile', icon: CreditCard }
-]
+// Payment methods will be defined inside component
 
 export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: QuickSaleModalProps) {
+  // Payment methods
+  const paymentMethods = [
+    { id: 'cash', name: 'Espèces', icon: DollarSign },
+    { id: 'card', name: 'Carte bancaire', icon: CreditCard },
+    { id: 'check', name: 'Chèque', icon: DollarSign },
+    { id: 'mobile', name: 'Paiement mobile', icon: CreditCard }
+  ]
+
+  // Database state
+  const [productsDatabase, setProductsDatabase] = useState<any[]>([])
+  const [promoDatabase, setPromoDatabase] = useState<PromoCode[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('card')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [promoCode, setPromoCode] = useState('')
-  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null)
+  const [appliedPromos, setAppliedPromos] = useState<PromoCode[]>([])
   const [promoError, setPromoError] = useState('')
   const [promoSuccess, setPromoSuccess] = useState('')
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
@@ -85,23 +69,66 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
   const [showDiscountModal, setShowDiscountModal] = useState(false) // New state
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null) // New state
 
+  // Customer search states
+  const [customersDatabase, setCustomersDatabase] = useState<any[]>([])
+  const [customerSuggestions, setCustomerSuggestions] = useState<any[]>([])
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false)
+  const [activeCustomerField, setActiveCustomerField] = useState<'name' | 'phone' | 'email' | 'loyaltyCard' | null>(null)
+  const [promoSuggestions, setPromoSuggestions] = useState<any[]>([])
+  const [showPromoSuggestions, setShowPromoSuggestions] = useState(false)
+
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
-  // Focus sur la recherche quand le modal s'ouvre
+  // Load data from database when modal opens
   useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus()
+    if (isOpen) {
+      loadData()
+      if (searchInputRef.current) {
+        searchInputRef.current.focus()
+      }
     }
   }, [isOpen])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      // Fetch products
+      const productsResponse = await fetch('/api/products')
+      const products = await productsResponse.json()
+      setProductsDatabase(products)
+
+      // Fetch promo codes
+      const promosResponse = await fetch('/api/promocodes')
+      const promos = await promosResponse.json()
+      setPromoDatabase(promos)
+
+      // Fetch customers
+      const customersResponse = await fetch('/api/customers')
+      const customers = await customersResponse.json()
+      setCustomersDatabase(customers)
+    } catch (error) {
+      console.error('Error loading data:', error)
+      showToast('error', 'Erreur', 'Impossible de charger les données')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Gestion des touches clavier pour le scanner
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!isOpen) return
 
-      // Si on tape dans le champ de recherche, ne pas traiter comme code-barres
-      if (document.activeElement === searchInputRef.current) return
+      // Si on tape dans un champ de saisie, ne pas traiter comme code-barres
+      const activeElement = document.activeElement
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+      )) {
+        return
+      }
 
       // Si c'est un chiffre ou lettre, ajouter au code-barres
       if (e.key.length === 1 && (e.key.match(/[0-9]/) || e.key.match(/[a-zA-Z]/))) {
@@ -149,6 +176,34 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
     setShowSuggestions(filtered.length > 0)
   }
 
+  const searchCustomers = (term: string, field: 'name' | 'phone' | 'email' | 'loyaltyCard') => {
+    if (term.length < 2) {
+      setCustomerSuggestions([])
+      setShowCustomerSuggestions(false)
+      return
+    }
+
+    const filtered = customersDatabase.filter(customer => {
+      const searchValue = customer[field]?.toLowerCase() || ''
+      return searchValue.includes(term.toLowerCase())
+    }).slice(0, 5)
+
+    setCustomerSuggestions(filtered)
+    setShowCustomerSuggestions(filtered.length > 0)
+  }
+
+  const searchPromoCodes = (term: string) => {
+    if (!term.trim()) return []
+
+    const filtered = promoDatabase.filter(promo => {
+      const searchValue = promo.code.toLowerCase()
+      const descriptionValue = promo.description.toLowerCase()
+      return searchValue.includes(term.toLowerCase()) || descriptionValue.includes(term.toLowerCase())
+    })
+
+    return filtered.slice(0, 5)
+  }
+
   const addToCart = (product: any) => {
     const existingItem = cart.find(item => item.id === product.id)
     
@@ -191,6 +246,57 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
     setCart(prev => prev.filter(item => item.id !== itemId))
   }
 
+  const selectCustomer = async (customer: any) => {
+    setCustomerInfo({
+      name: customer.name || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      loyaltyCard: customer.loyaltyCard || ''
+    })
+    setShowCustomerSuggestions(false)
+    setActiveCustomerField(null)
+    
+    // Apply LOYALTY5 promo code if customer has ANY loyalty card
+    if (customer.loyaltyCard && customer.loyaltyCard.trim() !== '') {
+      console.log('Applying loyalty code for customer:', customer.name, 'with loyalty card:', customer.loyaltyCard)
+      console.log('Current subtotal:', getSubtotal())
+      
+      try {
+        const response = await fetch('/api/promocodes?action=validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: 'LOYALTY5',
+            amount: getSubtotal(),
+          }),
+        })
+
+        const data = await response.json()
+        console.log('Loyalty code validation response:', data)
+        
+              if (data.success) {
+        // Check if loyalty code is already applied
+        if (appliedPromos.some(promo => promo.code === 'LOYALTY5')) {
+          setPromoError('La fidélité est déjà appliquée')
+          return
+        }
+        
+        setAppliedPromos(prev => [...prev, data.promoCode])
+        setPromoSuccess(`Fidélité appliquée: ${data.promoCode.description}`)
+        showToast('success', 'Fidélité appliquée', `Code fidélité appliqué pour ${customer.name} (${customer.loyaltyCard})`)
+      } else {
+          console.log('Loyalty code validation failed:', data.error)
+          showToast('warning', 'Fidélité non disponible', data.error || 'Code fidélité non disponible ou invalide')
+        }
+      } catch (error) {
+        console.error('Error applying loyalty code:', error)
+        showToast('error', 'Erreur', 'Erreur lors de l\'application du code fidélité')
+      }
+    }
+  }
+
   const applyDiscountToItem = (itemId: string, discount: number, type: 'percentage' | 'fixed') => {
     setCart(prev => prev.map(item => {
       if (item.id === itemId) {
@@ -213,20 +319,32 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
   }
 
   const getPromoDiscount = () => {
-    if (!appliedPromo) return 0
-
+    if (appliedPromos.length === 0) return 0
+    
     const subtotal = getSubtotal()
-    if (subtotal < appliedPromo.minAmount) return 0
-
-    if (appliedPromo.type === 'percentage') {
-      return (subtotal * appliedPromo.value) / 100
-    } else {
-      return Math.min(appliedPromo.value, subtotal)
+    let totalDiscount = 0
+    
+    for (const promo of appliedPromos) {
+      if (subtotal < promo.minAmount) continue
+      
+      if (promo.type === 'percentage') {
+        totalDiscount += (subtotal * promo.value) / 100
+      } else {
+        totalDiscount += Math.min(promo.value, subtotal)
+      }
     }
+    
+    return totalDiscount
   }
 
   const getDiscountAmount = () => {
     if (!appliedDiscount) return 0
+    
+    const subtotal = getSubtotal()
+    if (appliedDiscount.type === 'loyalty') {
+      return (subtotal * appliedDiscount.percentage) / 100
+    }
+    
     return appliedDiscount.appliedAmount || 0
   }
 
@@ -238,7 +356,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
     return subtotal - promoDiscount - discountAmount + tax
   }
 
-  const applyPromoCode = () => {
+  const applyPromoCode = async () => {
     setPromoError('')
     setPromoSuccess('')
 
@@ -247,36 +365,55 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
       return
     }
 
-    const promo = promoDatabase.find(p => p.code.toUpperCase() === promoCode.toUpperCase())
-
-    if (!promo) {
-      setPromoError('Code promo invalide')
+    if (appliedPromos.length >= 2) {
+      setPromoError('Maximum 2 codes promo autorisés par vente')
       return
     }
 
-    if (new Date() > new Date(promo.validUntil)) {
-      setPromoError('Code promo expiré')
+    // Check if promo code is already applied
+    if (appliedPromos.some(promo => promo.code === promoCode.toUpperCase())) {
+      setPromoError('Ce code promo est déjà appliqué')
       return
     }
 
-    if (promo.usedCount >= promo.maxUses) {
-      setPromoError('Code promo épuisé')
-      return
-    }
+    try {
+      console.log('Applying promo code:', promoCode, 'Subtotal:', getSubtotal())
+      
+      const response = await fetch('/api/promocodes?action=validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: promoCode.toUpperCase(),
+          amount: getSubtotal(),
+        }),
+      })
 
-    const subtotal = getSubtotal()
-    if (subtotal < promo.minAmount) {
-      setPromoError(`Montant minimum requis: €${promo.minAmount}`)
-      return
-    }
+      const data = await response.json()
+      console.log('Promo code validation response:', data)
 
-    setAppliedPromo(promo)
-    setPromoSuccess(`Code promo appliqué: ${promo.description}`)
-    setPromoCode('')
+      if (data.success) {
+        setAppliedPromos(prev => [...prev, data.promoCode])
+        setPromoSuccess(`Code promo appliqué: ${data.promoCode.description}`)
+        setPromoCode('')
+        setShowPromoSuggestions(false)
+      } else {
+        console.log('Promo code validation failed:', data.error)
+        setPromoError(data.error || 'Code promo invalide')
+      }
+    } catch (error) {
+      console.error('Error validating promo code:', error)
+      setPromoError('Erreur lors de la validation du code promo')
+    }
   }
 
-  const removePromoCode = () => {
-    setAppliedPromo(null)
+  const removePromoCode = (codeToRemove?: string) => {
+    if (codeToRemove) {
+      setAppliedPromos(prev => prev.filter(promo => promo.code !== codeToRemove))
+    } else {
+      setAppliedPromos([])
+    }
     setPromoSuccess('')
   }
 
@@ -302,8 +439,9 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
       `).join('')}
       =================================
       Sous-total: €${getSubtotal().toFixed(2)}
-      ${appliedPromo ? `Remise promo: -€${getPromoDiscount().toFixed(2)}` : ''}
-      TVA (20%): €${((getSubtotal() - getPromoDiscount()) * 0.2).toFixed(2)}
+      ${appliedPromos.length > 0 ? `Remise promo: -€${getPromoDiscount().toFixed(2)}` : ''}
+      ${appliedDiscount ? `Remise: -€${getDiscountAmount().toFixed(2)}` : ''}
+      TVA (20%): €${((getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2).toFixed(2)}
       TOTAL: €${getTotal().toFixed(2)}
       =================================
       Méthode de paiement: ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}
@@ -324,59 +462,133 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
 
     setIsProcessing(true)
     
-    // Simuler le traitement de la vente
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Mettre à jour le stock (simulation)
-    cart.forEach(item => {
-      const product = productsDatabase.find(p => p.id === item.id)
-      if (product) {
-        product.stock = Math.max(0, product.stock - item.quantity)
+    try {
+      // Handle customer creation/linking
+      let customerId = null
+      
+      if (customerInfo.name || customerInfo.phone || customerInfo.email) {
+        // Try to find existing customer by phone or loyalty card
+        if (customerInfo.phone || customerInfo.loyaltyCard) {
+          const searchParams = new URLSearchParams()
+          if (customerInfo.phone) searchParams.append('phone', customerInfo.phone)
+          if (customerInfo.loyaltyCard) searchParams.append('loyaltyCard', customerInfo.loyaltyCard)
+          
+          const existingCustomer = await fetch(`/api/customers/search?${searchParams.toString()}`)
+          if (existingCustomer.ok) {
+            const customer = await existingCustomer.json()
+            if (customer) {
+              customerId = customer.id
+            }
+          }
+        }
+        
+        // If no existing customer found, create a new one
+        if (!customerId) {
+          const customerResponse = await fetch('/api/customers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: customerInfo.name || 'Client en magasin',
+              email: customerInfo.email || undefined,
+              phone: customerInfo.phone || undefined,
+              loyaltyCard: customerInfo.loyaltyCard || undefined,
+            }),
+          })
+          
+          if (customerResponse.ok) {
+            const newCustomer = await customerResponse.json()
+            customerId = newCustomer.id
+          }
+        }
       }
-    })
-    
-    const sale = {
-      id: `SALE${Date.now()}`,
-      customer: customerInfo.name || 'Client en magasin',
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      total: getTotal(),
-      subtotal: getSubtotal(),
-      tax: (getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2,
-      promoDiscount: getPromoDiscount(),
-      discountAmount: getDiscountAmount(),
-      items: cart.length,
-      paymentMethod: paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'Carte bancaire',
-      cashier: 'Caissier actuel',
-      status: 'Payé',
-      saleItems: cart,
-      customerInfo: customerInfo,
-      appliedPromo: appliedPromo,
-      appliedDiscount: appliedDiscount
-    }
 
-    onSaleCompleted(sale)
-    
-    // Imprimer le reçu
-    await printReceipt()
-    
-    // Reset form
-    setCart([])
-    setSearchTerm('')
-    setSelectedPaymentMethod('card')
-    setPromoCode('')
-    setAppliedPromo(null)
-    setCustomerInfo({ name: '', phone: '', email: '', loyaltyCard: '' })
-    setIsProcessing(false)
-    onClose()
+      // Prepare sale data for database
+      const saleData = {
+        customerId: customerId,
+        totalAmount: getSubtotal(),
+        discountAmount: getPromoDiscount() + getDiscountAmount(),
+        taxAmount: (getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2,
+        finalAmount: getTotal(),
+        paymentMethod: selectedPaymentMethod,
+        notes: customerInfo.name ? `Client: ${customerInfo.name}` : undefined,
+        items: cart.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          unitPrice: item.originalPrice,
+          discount: item.discount,
+          totalPrice: item.total,
+        })),
+      }
+
+      // Save sale to database
+      const response = await fetch('/api/sales', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(saleData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save sale')
+      }
+
+      const savedSale = await response.json()
+      
+      const sale = {
+        id: savedSale.id,
+        customer: customerInfo.name || 'Client en magasin',
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        total: getTotal(),
+        subtotal: getSubtotal(),
+        tax: (getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2,
+        promoDiscount: getPromoDiscount(),
+        discountAmount: getDiscountAmount(),
+        items: cart.length,
+        paymentMethod: paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'Carte bancaire',
+        cashier: 'Caissier actuel',
+        status: 'Payé',
+        saleItems: cart,
+        customerInfo: customerInfo,
+        appliedPromos: appliedPromos,
+        appliedDiscount: appliedDiscount
+      }
+
+      onSaleCompleted(sale)
+      
+      // Reload products to get updated stock
+      await loadData()
+      
+      // Imprimer le reçu
+      await printReceipt()
+      
+      // Reset form
+      setCart([])
+      setSearchTerm('')
+      setSelectedPaymentMethod('cash')
+      setPromoCode('')
+      setAppliedPromos([])
+      setCustomerInfo({ name: '', phone: '', email: '', loyaltyCard: '' })
+      setIsProcessing(false)
+      onClose()
+      
+      showToast('success', 'Vente terminée', 'La vente a été enregistrée avec succès')
+    } catch (error) {
+      console.error('Error completing sale:', error)
+      showToast('error', 'Erreur', 'Impossible de finaliser la vente')
+      setIsProcessing(false)
+    }
   }
 
   const handleClose = () => {
     setCart([])
     setSearchTerm('')
-    setSelectedPaymentMethod('card')
+    setSelectedPaymentMethod('cash')
     setPromoCode('')
-    setAppliedPromo(null)
+          setAppliedPromos([])
     setCustomerInfo({ name: '', phone: '', email: '', loyaltyCard: '' })
     onClose()
   }
@@ -401,7 +613,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl mx-auto max-h-[95vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto max-h-[95vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -456,8 +668,13 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
 
               {/* Product Search */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Rechercher un produit</h3>
-                <div className="relative">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Rechercher un produit
+                  {isLoading && (
+                    <span className="ml-2 text-sm text-gray-500">(Chargement...)</span>
+                  )}
+                </h3>
+                <div className="relative max-w-full">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     ref={searchInputRef}
@@ -474,21 +691,23 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
 
                 {/* Suggestions */}
                 {showSuggestions && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-fit mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {suggestions.map((product) => (
                       <div
                         key={product.id}
                         onClick={() => addToCart(product)}
                         className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                       >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">{product.category} • Stock: {product.stock}</div>
-                            <div className="text-xs text-gray-400">Code: {product.barcode}</div>
+                        <div className="flex justify-between items-start min-w-0">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                            <div className="text-sm text-gray-500 truncate">
+                              {typeof product.category === 'object' ? product.category?.name : product.category} • Stock: {product.stock}
+                            </div>
+                            <div className="text-xs text-gray-400 truncate">Code: {product.barcode}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-medium text-gray-900">€{product.price.toFixed(2)}</div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-medium text-gray-900 whitespace-nowrap">€{product.price.toFixed(2)}</div>
                           </div>
                         </div>
                       </div>
@@ -556,47 +775,173 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Informations client</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nom du client</label>
                     <input
                       type="text"
                       value={customerInfo.name}
-                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => {
+                        setCustomerInfo(prev => ({ ...prev, name: e.target.value }))
+                        searchCustomers(e.target.value, 'name')
+                        setActiveCustomerField('name')
+                      }}
+                      onFocus={() => {
+                        if (customerInfo.name.length >= 2) {
+                          searchCustomers(customerInfo.name, 'name')
+                          setActiveCustomerField('name')
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Nom du client"
                     />
+                    {/* Customer Suggestions for Name */}
+                    {showCustomerSuggestions && customerSuggestions.length > 0 && activeCustomerField === 'name' && (
+                      <div className="absolute z-10 w-fit mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {customerSuggestions.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <div className="font-medium text-gray-900">{customer.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {customer.phone && `📞 ${customer.phone}`}
+                                {customer.email && ` • 📧 ${customer.email}`}
+                                {customer.loyaltyCard && ` • 🎫 ${customer.loyaltyCard}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                     <input
                       type="tel"
                       value={customerInfo.phone}
-                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) => {
+                        setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))
+                        searchCustomers(e.target.value, 'phone')
+                        setActiveCustomerField('phone')
+                      }}
+                      onFocus={() => {
+                        if (customerInfo.phone.length >= 2) {
+                          searchCustomers(customerInfo.phone, 'phone')
+                          setActiveCustomerField('phone')
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Téléphone"
                     />
+                    {/* Customer Suggestions for Phone */}
+                    {showCustomerSuggestions && customerSuggestions.length > 0 && activeCustomerField === 'phone' && (
+                      <div className="absolute z-10 w-fit mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {customerSuggestions.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <div className="font-medium text-gray-900">{customer.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {customer.phone && `📞 ${customer.phone}`}
+                                {customer.email && ` • 📧 ${customer.email}`}
+                                {customer.loyaltyCard && ` • 🎫 ${customer.loyaltyCard}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input
                       type="email"
                       value={customerInfo.email}
-                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => {
+                        setCustomerInfo(prev => ({ ...prev, email: e.target.value }))
+                        searchCustomers(e.target.value, 'email')
+                        setActiveCustomerField('email')
+                      }}
+                      onFocus={() => {
+                        if (customerInfo.email.length >= 2) {
+                          searchCustomers(customerInfo.email, 'email')
+                          setActiveCustomerField('email')
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Email"
                     />
+                    {/* Customer Suggestions for Email */}
+                    {showCustomerSuggestions && customerSuggestions.length > 0 && activeCustomerField === 'email' && (
+                      <div className="absolute z-10 w-fit mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {customerSuggestions.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <div className="font-medium text-gray-900">{customer.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {customer.phone && `📞 ${customer.phone}`}
+                                {customer.email && ` • 📧 ${customer.email}`}
+                                {customer.loyaltyCard && ` • 🎫 ${customer.loyaltyCard}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Carte fidélité</label>
                     <input
                       type="text"
                       value={customerInfo.loyaltyCard}
-                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, loyaltyCard: e.target.value }))}
+                      onChange={(e) => {
+                        setCustomerInfo(prev => ({ ...prev, loyaltyCard: e.target.value }))
+                        searchCustomers(e.target.value, 'loyaltyCard')
+                        setActiveCustomerField('loyaltyCard')
+                      }}
+                      onFocus={() => {
+                        if (customerInfo.loyaltyCard.length >= 2) {
+                          searchCustomers(customerInfo.loyaltyCard, 'loyaltyCard')
+                          setActiveCustomerField('loyaltyCard')
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Numéro de carte"
                     />
+                    {/* Customer Suggestions for Loyalty Card */}
+                    {showCustomerSuggestions && customerSuggestions.length > 0 && activeCustomerField === 'loyaltyCard' && (
+                      <div className="absolute z-10 w-fit mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {customerSuggestions.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <div className="font-medium text-gray-900">{customer.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {customer.phone && `📞 ${customer.phone}`}
+                                {customer.email && ` • 📧 ${customer.email}`}
+                                {customer.loyaltyCard && ` • 🎫 ${customer.loyaltyCard}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+
               </div>
             </div>
 
@@ -604,17 +949,63 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
             <div className="space-y-6">
               {/* Promo Code */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Code promo</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Code promo 
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    ({appliedPromos.length}/2)
+                  </span>
+                </h3>
                 <div className="flex space-x-2">
                   <div className="relative flex-1">
                     <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
                       value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value)
+                        const suggestions = searchPromoCodes(e.target.value)
+                        setPromoSuggestions(suggestions)
+                        setShowPromoSuggestions(suggestions.length > 0 && e.target.value.length > 0)
+                      }}
+                      onFocus={() => {
+                        const suggestions = searchPromoCodes(promoCode)
+                        setPromoSuggestions(suggestions)
+                        setShowPromoSuggestions(suggestions.length > 0 && promoCode.length > 0)
+                      }}
                       placeholder="Code promo..."
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                    
+                    {/* Promo Code Suggestions */}
+                    {showPromoSuggestions && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {promoSuggestions.map((promo) => (
+                          <div
+                            key={promo.code}
+                            onClick={() => {
+                              setPromoCode(promo.code)
+                              setShowPromoSuggestions(false)
+                            }}
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <div className="font-medium text-blue-600">{promo.code}</div>
+                                <div className="text-sm text-gray-600">{promo.description}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-medium text-green-600">
+                                  {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Min: €{promo.minAmount}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={applyPromoCode}
@@ -631,35 +1022,76 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                   </div>
                 )}
 
-                {promoSuccess && (
-                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                    <div className="flex justify-between items-center">
-                      <p className="text-green-600 text-sm">{promoSuccess}</p>
-                      <button
-                        onClick={removePromoCode}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                {/* Applied Promo Codes */}
+                {appliedPromos.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {appliedPromos.map((promo, index) => (
+                      <div key={promo.code} className="p-2 bg-green-50 border border-green-200 rounded-md">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-green-800 text-sm font-medium">
+                              {promo.code === 'LOYALTY5' ? 'Réduction fidélité' : promo.code}
+                            </p>
+                            <p className="text-green-600 text-xs">{promo.description}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-green-700 text-sm font-medium">
+                              -€{promo.type === 'percentage' ? ((getSubtotal() * promo.value) / 100).toFixed(2) : promo.value.toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => removePromoCode(promo.code)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+
 
                 {/* Available Promo Codes */}
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Codes promo disponibles :</h4>
                   <div className="space-y-2">
-                    {promoDatabase.map(promo => (
-                      <div key={promo.code} className="p-2 bg-gray-50 rounded-md text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-blue-600">{promo.code}</span>
-                          <span className="text-gray-500">
-                            {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                                    {promoDatabase.map(promo => (
+                  <div 
+                    key={promo.code} 
+                    className={`p-2 rounded-md text-xs ${
+                      appliedPromos.some(p => p.code === promo.code)
+                        ? 'bg-blue-100 border border-blue-300'
+                        : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-medium ${
+                          appliedPromos.some(p => p.code === promo.code) ? 'text-blue-800' : 'text-blue-600'
+                        }`}>
+                          {promo.code}
+                        </span>
+                        {appliedPromos.some(p => p.code === promo.code) && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-200 text-blue-800">
+                            ✓
                           </span>
-                        </div>
-                        <div className="text-gray-600 mt-1">{promo.description}</div>
+                        )}
                       </div>
-                    ))}
+                      <span className={`${
+                        appliedPromos.some(p => p.code === promo.code) ? 'text-blue-700' : 'text-gray-500'
+                      }`}>
+                        {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                      </span>
+                    </div>
+                    <div className={`mt-1 ${
+                      appliedPromos.some(p => p.code === promo.code) ? 'text-blue-700' : 'text-gray-600'
+                    }`}>
+                      {promo.description}
+                    </div>
+                  </div>
+                ))}
                   </div>
                 </div>
               </div>
@@ -725,16 +1157,22 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                     <span className="text-gray-600">Sous-total:</span>
                     <span className="font-medium">€{getSubtotal().toFixed(2)}</span>
                   </div>
-                  {appliedPromo && (
+                  {appliedPromos.length > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Remise promo:</span>
-                      <span className="font-medium text-green-600">-€{getPromoDiscount().toFixed(2)}</span>
+                      <span className="text-gray-600">
+                        Remise promo:
+                      </span>
+                      <span className="font-medium text-green-600">
+                        -€{getPromoDiscount().toFixed(2)}
+                      </span>
                     </div>
                   )}
                   {appliedDiscount && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">Remise:</span>
-                      <span className="font-medium text-purple-600">-€{getDiscountAmount().toFixed(2)}</span>
+                      <span className="font-medium text-purple-600">
+                        -€{getDiscountAmount().toFixed(2)}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between">

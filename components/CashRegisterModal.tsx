@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, DollarSign, Calculator, Clock, AlertTriangle, CheckCircle, Printer, Download } from 'lucide-react'
 
 interface CashRegisterModalProps {
@@ -9,61 +9,183 @@ interface CashRegisterModalProps {
   type: 'open' | 'close' | 'count'
 }
 
-interface ShiftData {
+interface CashSession {
+  id: string
+  openingAmount: number
+  closingAmount?: number
+  expectedAmount?: number
+  actualAmount?: number
+  difference?: number
+  totalSales: number
+  totalTransactions: number
+  cashierName?: string
+  status: string
   startTime: string
   endTime?: string
+  notes?: string
+}
+
+interface ShiftData {
   initialAmount: number
-  finalAmount?: number
-  sales: number
-  transactions: number
-  cashier: string
+  cashierName: string
   notes: string
 }
 
 export default function CashRegisterModal({ isOpen, onClose, type }: CashRegisterModalProps) {
   const [shiftData, setShiftData] = useState<ShiftData>({
-    startTime: new Date().toLocaleTimeString('fr-FR'),
     initialAmount: 0,
-    sales: 0,
-    transactions: 0,
-    cashier: 'Caissier actuel',
+    cashierName: 'Caissier actuel',
     notes: ''
   })
   const [countedAmount, setCountedAmount] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [currentSession, setCurrentSession] = useState<CashSession | null>(null)
+  const [sessionHistory, setSessionHistory] = useState<CashSession[]>([])
+
+  // Load current session and history when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadCashSessionData()
+    }
+  }, [isOpen])
+
+  const loadCashSessionData = async () => {
+    try {
+      const response = await fetch('/api/cash')
+      const data = await response.json()
+      
+      if (data.success) {
+        setCurrentSession(data.currentSession)
+        setSessionHistory(data.history)
+      }
+    } catch (error) {
+      console.error('Error loading cash session data:', error)
+    }
+  }
 
   const handleOpenShift = async () => {
+    if (shiftData.initialAmount <= 0) {
+      showToast('error', 'Erreur', 'Le montant initial doit être supérieur à 0')
+      return
+    }
+
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Simuler l'ouverture de caisse
-    showToast('success', 'Caisse ouverte', `Caisse ouverte avec €${shiftData.initialAmount.toFixed(2)}`)
-    setIsProcessing(false)
-    onClose()
+    try {
+      const response = await fetch('/api/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'open',
+          openingAmount: shiftData.initialAmount,
+          cashierName: shiftData.cashierName,
+          notes: shiftData.notes
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        showToast('success', 'Caisse ouverte', `Caisse ouverte avec €${shiftData.initialAmount.toFixed(2)}`)
+        await loadCashSessionData()
+        onClose()
+      } else {
+        showToast('error', 'Erreur', data.error || 'Erreur lors de l\'ouverture de la caisse')
+      }
+    } catch (error) {
+      showToast('error', 'Erreur', 'Erreur de connexion')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleCloseShift = async () => {
+    if (!currentSession) {
+      showToast('error', 'Erreur', 'Aucune session de caisse ouverte')
+      return
+    }
+
+    if (countedAmount < 0) {
+      showToast('error', 'Erreur', 'Le montant compté doit être positif')
+      return
+    }
+
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Simuler la fermeture de caisse
-    const difference = countedAmount - shiftData.initialAmount
-    const message = difference === 0 
-      ? 'Caisse fermée - Montant correct'
-      : `Caisse fermée - Différence: ${difference > 0 ? '+' : ''}€${difference.toFixed(2)}`
-    
-    showToast('success', 'Caisse fermée', message)
-    setIsProcessing(false)
-    onClose()
+    try {
+      const response = await fetch('/api/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'close',
+          sessionId: currentSession.id,
+          closingAmount: countedAmount,
+          actualAmount: countedAmount,
+          notes: shiftData.notes
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        const difference = data.session.difference
+        const message = difference === 0 
+          ? 'Caisse fermée - Montant correct'
+          : `Caisse fermée - Différence: ${difference > 0 ? '+' : ''}€${difference.toFixed(2)}`
+        
+        showToast('success', 'Caisse fermée', message)
+        await loadCashSessionData()
+        onClose()
+      } else {
+        showToast('error', 'Erreur', data.error || 'Erreur lors de la fermeture de la caisse')
+      }
+    } catch (error) {
+      showToast('error', 'Erreur', 'Erreur de connexion')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleCountCash = async () => {
+    if (!currentSession) {
+      showToast('error', 'Erreur', 'Aucune session de caisse ouverte')
+      return
+    }
+
+    if (countedAmount < 0) {
+      showToast('error', 'Erreur', 'Le montant compté doit être positif')
+      return
+    }
+
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Simuler le comptage
-    showToast('success', 'Comptage terminé', `Montant compté: €${countedAmount.toFixed(2)}`)
-    setIsProcessing(false)
+    try {
+      const response = await fetch('/api/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'count',
+          sessionId: currentSession.id,
+          actualAmount: countedAmount,
+          notes: shiftData.notes
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        const difference = data.session.difference
+        const message = difference === 0 
+          ? `Comptage terminé - Montant correct: €${countedAmount.toFixed(2)}`
+          : `Comptage terminé - Différence: ${difference > 0 ? '+' : ''}€${difference.toFixed(2)}`
+        
+        showToast('success', 'Comptage terminé', message)
+        await loadCashSessionData()
+      } else {
+        showToast('error', 'Erreur', data.error || 'Erreur lors du comptage')
+      }
+    } catch (error) {
+      showToast('error', 'Erreur', 'Erreur de connexion')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
@@ -170,8 +292,8 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                 </label>
                 <input
                   type="text"
-                  value={shiftData.cashier}
-                  onChange={(e) => setShiftData(prev => ({ ...prev, cashier: e.target.value }))}
+                  value={shiftData.cashierName}
+                  onChange={(e) => setShiftData(prev => ({ ...prev, cashierName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Nom du caissier"
                 />
@@ -194,27 +316,47 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
 
           {type === 'close' && (
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Résumé du shift</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Heure d'ouverture</p>
-                    <p className="font-medium">{shiftData.startTime}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Montant initial</p>
-                    <p className="font-medium">€{shiftData.initialAmount.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Ventes</p>
-                    <p className="font-medium">{shiftData.sales}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Transactions</p>
-                    <p className="font-medium">{shiftData.transactions}</p>
+              {currentSession ? (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Résumé du shift</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Heure d'ouverture</p>
+                      <p className="font-medium">{new Date(currentSession.startTime).toLocaleTimeString('fr-FR')}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Montant initial</p>
+                      <p className="font-medium">€{currentSession.openingAmount.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Ventes</p>
+                      <p className="font-medium">€{currentSession.totalSales.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Transactions</p>
+                      <p className="font-medium">{currentSession.totalTransactions}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Caissier</p>
+                      <p className="font-medium">{currentSession.cashierName || 'Non spécifié'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Montant attendu</p>
+                      <p className="font-medium">€{(currentSession.openingAmount + currentSession.totalSales).toFixed(2)}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-900">Aucune session ouverte</span>
+                  </div>
+                  <p className="text-sm text-red-700 mt-1">
+                    Aucune session de caisse n'est actuellement ouverte.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -233,14 +375,14 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                 </div>
               </div>
 
-              {countedAmount > 0 && (
+              {countedAmount > 0 && currentSession && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center space-x-2 mb-2">
                     <AlertTriangle className="w-4 h-4 text-blue-600" />
                     <span className="text-sm font-medium text-blue-900">Différence</span>
                   </div>
                   <p className="text-sm text-blue-700">
-                    Différence: {(countedAmount - shiftData.initialAmount) > 0 ? '+' : ''}€{(countedAmount - shiftData.initialAmount).toFixed(2)}
+                    Différence: {(countedAmount - (currentSession.openingAmount + currentSession.totalSales)) > 0 ? '+' : ''}€{(countedAmount - (currentSession.openingAmount + currentSession.totalSales)).toFixed(2)}
                   </p>
                 </div>
               )}
@@ -262,15 +404,51 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
 
           {type === 'count' && (
             <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                  <span className="text-sm font-medium text-yellow-900">Comptage de caisse</span>
+              {currentSession ? (
+                <>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Session en cours</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Montant initial</p>
+                        <p className="font-medium">€{currentSession.openingAmount.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Ventes</p>
+                        <p className="font-medium">€{currentSession.totalSales.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Montant attendu</p>
+                        <p className="font-medium">€{(currentSession.openingAmount + currentSession.totalSales).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Caissier</p>
+                        <p className="font-medium">{currentSession.cashierName || 'Non spécifié'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-900">Comptage de caisse</span>
+                    </div>
+                    <p className="text-sm text-yellow-700">
+                      Comptez soigneusement l'argent en caisse et saisissez le montant total.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-900">Aucune session ouverte</span>
+                  </div>
+                  <p className="text-sm text-red-700 mt-1">
+                    Aucune session de caisse n'est actuellement ouverte.
+                  </p>
                 </div>
-                <p className="text-sm text-yellow-700">
-                  Comptez soigneusement l'argent en caisse et saisissez le montant total.
-                </p>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -352,7 +530,11 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
 
             <button
               onClick={type === 'open' ? handleOpenShift : handleCloseShift}
-              disabled={isProcessing || (type === 'open' && shiftData.initialAmount <= 0) || (type === 'close' && countedAmount <= 0)}
+              disabled={isProcessing || 
+                (type === 'open' && shiftData.initialAmount <= 0) || 
+                (type === 'close' && (countedAmount <= 0 || !currentSession)) ||
+                (type === 'count' && (countedAmount <= 0 || !currentSession))
+              }
               className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2 ${getButtonColor()}`}
             >
               {isProcessing ? (

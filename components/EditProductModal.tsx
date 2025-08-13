@@ -23,7 +23,7 @@ interface EditProductModalProps {
   product: Product | null
 }
 
-const categories = ['Électronique', 'Accessoires', 'Bureau', 'Gaming', 'Stockage', 'Audio', 'Autres']
+const categories = ['Alimentation', 'Boulangerie', 'Fruits', 'Boissons', 'Snacks', 'Confiserie']
 const suppliers = ['TechCorp', 'ErgoGear', 'ConnectAll', 'GameSound', 'DataVault', 'ViewTech', 'AudioMax']
 
 export default function EditProductModal({ isOpen, onClose, onProductUpdated, product }: EditProductModalProps) {
@@ -103,24 +103,38 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
 
     setIsLoading(true)
 
-    // Simuler un appel API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      const productData = {
+        name: formData.name!,
+        sku: formData.sku!,
+        description: formData.description,
+        price: Number(formData.price),
+        stock: Number(formData.stock),
+        minStock: Number(formData.alertLevel),
+        barcode: formData.sku!, // Using SKU as barcode for now
+      }
 
-    const updatedProduct: Product = {
-      id: formData.id!,
-      name: formData.name!,
-      sku: formData.sku!,
-      category: formData.category!,
-      supplier: formData.supplier!,
-      stock: Number(formData.stock),
-      price: Number(formData.price),
-      status: formData.status!,
-      description: formData.description,
-      alertLevel: Number(formData.alertLevel)
+      const response = await fetch(`/api/products/${formData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update product')
+      }
+
+      const updatedProduct = await response.json()
+      onProductUpdated(updatedProduct)
+      handleClose()
+    } catch (error) {
+      console.error('Error updating product:', error)
+      setErrors({ submit: 'Erreur lors de la modification du produit' })
+    } finally {
+      setIsLoading(false)
     }
-
-    onProductUpdated(updatedProduct)
-    handleClose()
   }
 
   const handleClose = () => {
@@ -320,6 +334,13 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
               />
             </div>
           </div>
+
+          {/* Error Display */}
+          {errors.submit && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800 text-sm">{errors.submit}</p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">

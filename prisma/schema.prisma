@@ -1,0 +1,184 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Categories for products
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+// Products table
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  costPrice   Float     @default(0)
+  stock       Int       @default(0)
+  minStock    Int       @default(0)
+  barcode     String?   @unique
+  sku         String?   @unique
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  image       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  saleItems   SaleItem[]
+  inventoryMovements InventoryMovement[]
+  
+  @@index([barcode])
+  @@index([categoryId])
+}
+
+// Customers table
+model Customer {
+  id          String    @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  loyaltyCard String?   @unique
+  totalSpent  Float     @default(0)
+  visitCount  Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  sales       Sale[]
+  
+  @@index([phone])
+  @@index([loyaltyCard])
+}
+
+// Sales table
+model Sale {
+  id              String    @id @default(cuid())
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  totalAmount     Float
+  discountAmount  Float     @default(0)
+  taxAmount       Float     @default(0)
+  finalAmount     Float
+  paymentMethod   String
+  paymentStatus   String    @default("completed")
+  saleDate        DateTime  @default(now())
+  notes           String?
+  cashierId       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  items           SaleItem[]
+  
+  @@index([customerId])
+  @@index([saleDate])
+  @@index([paymentMethod])
+}
+
+// Sale items table
+model SaleItem {
+  id          String    @id @default(cuid())
+  saleId      String
+  sale        Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Float
+  discount    Float     @default(0)
+  totalPrice  Float
+  createdAt   DateTime  @default(now())
+  
+  @@index([saleId])
+  @@index([productId])
+}
+
+// Inventory movements table
+model InventoryMovement {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  type        String
+  quantity    Int
+  previousStock Int
+  newStock    Int
+  reason      String
+  reference   String?
+  notes       String?
+  userId      String?
+  createdAt   DateTime  @default(now())
+  
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Promo codes table
+model PromoCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  type        String
+  value       Float
+  minAmount   Float     @default(0)
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  validFrom   DateTime  @default(now())
+  validUntil  DateTime
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([code])
+  @@index([isActive])
+}
+
+// Settings table for app configuration
+model Setting {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       String
+  description String?
+  updatedAt   DateTime  @updatedAt
+}
+
+// Cash sessions table for cash register management
+model CashSession {
+  id              String    @id @default(cuid())
+  sessionDate     DateTime  @default(now())
+  startTime       DateTime  @default(now())
+  endTime         DateTime?
+  openingAmount   Float
+  closingAmount   Float?
+  expectedAmount  Float?
+  actualAmount    Float?
+  difference      Float?
+  totalSales      Float     @default(0)
+  totalTransactions Int     @default(0)
+  cashierId       String?
+  cashierName     String?
+  status          String    @default("open") // open, closed, counted
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([sessionDate])
+  @@index([status])
+  @@index([cashierId])
+}
