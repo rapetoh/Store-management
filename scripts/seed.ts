@@ -48,8 +48,8 @@ async function main() {
       update: {},
       create: {
         name: 'Lait 1L',
-        price: 1.20,
-        costPrice: 0.80,
+        price: 786, // 1.20 EUR * 655 = 786 FCFA
+        costPrice: 524, // 0.80 EUR * 655 = 524 FCFA
         stock: 50,
         minStock: 10,
         barcode: '3017620422003',
@@ -62,8 +62,8 @@ async function main() {
       update: {},
       create: {
         name: 'Pain baguette',
-        price: 0.85,
-        costPrice: 0.50,
+        price: 557, // 0.85 EUR * 655 = 557 FCFA
+        costPrice: 328, // 0.50 EUR * 655 = 328 FCFA
         stock: 30,
         minStock: 5,
         barcode: '3017620422004',
@@ -76,8 +76,8 @@ async function main() {
       update: {},
       create: {
         name: 'Yaourt nature',
-        price: 0.65,
-        costPrice: 0.40,
+        price: 426, // 0.65 EUR * 655 = 426 FCFA
+        costPrice: 262, // 0.40 EUR * 655 = 262 FCFA
         stock: 100,
         minStock: 20,
         barcode: '3017620422005',
@@ -90,8 +90,8 @@ async function main() {
       update: {},
       create: {
         name: 'Pommes Golden',
-        price: 2.50,
-        costPrice: 1.80,
+        price: 1638, // 2.50 EUR * 655 = 1638 FCFA
+        costPrice: 1179, // 1.80 EUR * 655 = 1179 FCFA
         stock: 25,
         minStock: 5,
         barcode: '3017620422006',
@@ -104,8 +104,8 @@ async function main() {
       update: {},
       create: {
         name: 'Eau minérale 1.5L',
-        price: 0.90,
-        costPrice: 0.60,
+        price: 590, // 0.90 EUR * 655 = 590 FCFA
+        costPrice: 393, // 0.60 EUR * 655 = 393 FCFA
         stock: 80,
         minStock: 15,
         barcode: '3017620422007',
@@ -118,8 +118,8 @@ async function main() {
       update: {},
       create: {
         name: 'Chips nature',
-        price: 1.10,
-        costPrice: 0.70,
+        price: 721, // 1.10 EUR * 655 = 721 FCFA
+        costPrice: 459, // 0.70 EUR * 655 = 459 FCFA
         stock: 45,
         minStock: 10,
         barcode: '3017620422008',
@@ -132,8 +132,8 @@ async function main() {
       update: {},
       create: {
         name: 'Café moulu 250g',
-        price: 3.50,
-        costPrice: 2.50,
+        price: 2293, // 3.50 EUR * 655 = 2293 FCFA
+        costPrice: 1638, // 2.50 EUR * 655 = 1638 FCFA
         stock: 20,
         minStock: 5,
         barcode: '3017620422009',
@@ -146,8 +146,8 @@ async function main() {
       update: {},
       create: {
         name: 'Bananes 1kg',
-        price: 1.80,
-        costPrice: 1.20,
+        price: 1179, // 1.80 EUR * 655 = 1179 FCFA
+        costPrice: 786, // 1.20 EUR * 655 = 786 FCFA
         stock: 35,
         minStock: 8,
         barcode: '3017620422010',
@@ -160,8 +160,8 @@ async function main() {
       update: {},
       create: {
         name: 'Jus d\'orange 1L',
-        price: 1.95,
-        costPrice: 1.30,
+        price: 1277, // 1.95 EUR * 655 = 1277 FCFA
+        costPrice: 852, // 1.30 EUR * 655 = 852 FCFA
         stock: 40,
         minStock: 10,
         barcode: '3017620422011',
@@ -174,8 +174,8 @@ async function main() {
       update: {},
       create: {
         name: 'Chocolat noir',
-        price: 2.20,
-        costPrice: 1.50,
+        price: 1441, // 2.20 EUR * 655 = 1441 FCFA
+        costPrice: 983, // 1.50 EUR * 655 = 983 FCFA
         stock: 60,
         minStock: 15,
         barcode: '3017620422012',
@@ -211,7 +211,7 @@ async function main() {
         code: 'SUMMER20',
         type: 'percentage',
         value: 20,
-        minAmount: 100,
+        minAmount: 65500, // 100 EUR * 655 = 65500 FCFA
         maxUses: 50,
         usedCount: 23,
         validUntil: new Date('2025-08-31'),
@@ -225,12 +225,12 @@ async function main() {
       create: {
         code: 'FREESHIP',
         type: 'fixed',
-        value: 15,
-        minAmount: 75,
+        value: 9825, // 15 EUR * 655 = 9825 FCFA
+        minAmount: 49125, // 75 EUR * 655 = 49125 FCFA
         maxUses: 200,
         usedCount: 89,
         validUntil: new Date('2025-12-31'),
-        description: 'Livraison gratuite (15€)',
+        description: 'Livraison gratuite (9825 FCFA)',
         isActive: true,
       },
     }),
@@ -241,7 +241,7 @@ async function main() {
         code: 'FLASH50',
         type: 'percentage',
         value: 50,
-        minAmount: 200,
+        minAmount: 131000, // 200 EUR * 655 = 131000 FCFA
         maxUses: 10,
         usedCount: 8,
         validUntil: new Date('2025-12-31'),
@@ -256,7 +256,7 @@ async function main() {
         code: 'LOYALTY5',
         type: 'percentage',
         value: 5,
-        minAmount: 25,
+        minAmount: 16375, // 25 EUR * 655 = 16375 FCFA
         maxUses: 500,
         usedCount: 156,
         validUntil: new Date('2025-12-31'),
@@ -279,7 +279,7 @@ async function main() {
         email: 'kossi.adjo@email.com',
         address: '123 Rue du Commerce, Lomé',
         loyaltyCard: 'LOY001',
-        totalSpent: 1250.50,
+        totalSpent: 819078, // 1250.50 EUR * 655 = 819078 FCFA
         visitCount: 15,
       },
     }),
@@ -292,7 +292,7 @@ async function main() {
         email: 'awa.mensah@email.com',
         address: '456 Avenue de la Paix, Kara',
         loyaltyCard: 'LOY002',
-        totalSpent: 890.75,
+        totalSpent: 583441, // 890.75 EUR * 655 = 583441 FCFA
         visitCount: 12,
       },
     }),

@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         console.log('❌ Minimum amount not met:', amount, '<', promoCode.minAmount)
         return NextResponse.json(
           { 
-            error: `Minimum amount required: ${promoCode.minAmount}€`,
+            error: `Montant minimum requis: ${promoCode.minAmount.toLocaleString('fr-FR')} FCFA`,
             minAmount: promoCode.minAmount 
           },
           { status: 400 }

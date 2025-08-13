@@ -1155,7 +1155,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Sous-total:</span>
-                    <span className="font-medium">€{getSubtotal().toFixed(2)}</span>
+                    <span className="font-medium">{getSubtotal().toLocaleString('fr-FR')} FCFA</span>
                   </div>
                   {appliedPromos.length > 0 && (
                     <div className="flex justify-between">
@@ -1163,7 +1163,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                         Remise promo:
                       </span>
                       <span className="font-medium text-green-600">
-                        -€{getPromoDiscount().toFixed(2)}
+                        -{getPromoDiscount().toLocaleString('fr-FR')} FCFA
                       </span>
                     </div>
                   )}
@@ -1171,18 +1171,18 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                     <div className="flex justify-between">
                       <span className="text-gray-600">Remise:</span>
                       <span className="font-medium text-purple-600">
-                        -€{getDiscountAmount().toFixed(2)}
+                        -{getDiscountAmount().toLocaleString('fr-FR')} FCFA
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span className="text-gray-600">TVA (20%):</span>
-                    <span className="font-medium">€{((getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2).toFixed(2)}</span>
+                    <span className="font-medium">{((getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2).toLocaleString('fr-FR')} FCFA</span>
                   </div>
                   <div className="border-t border-gray-300 pt-2">
                     <div className="flex justify-between">
                       <span className="text-lg font-bold text-gray-900">Total TTC:</span>
-                      <span className="text-lg font-bold text-green-600">€{getTotal().toFixed(2)}</span>
+                      <span className="text-lg font-bold text-green-600">{getTotal().toLocaleString('fr-FR')} FCFA</span>
                     </div>
                   </div>
                 </div>

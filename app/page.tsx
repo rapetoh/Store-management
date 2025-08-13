@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users } from 'lucide-react'
+import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
 import Sales from '@/components/Orders' // Renamed import from Orders to Sales
@@ -12,6 +12,7 @@ import SettingsPage from '@/components/Settings'
 import NotificationsModal from '@/components/NotificationsModal'
 import InfoModal from '@/components/InfoModal'
 import CashRegisterModal from '@/components/CashRegisterModal' // New import
+import Cash from '@/components/Cash' // New import
 
 import InventoryModal from '@/components/InventoryModal' // New import
 
@@ -23,6 +24,7 @@ const navigationItems = [
   { id: 'sales', label: 'Ventes', icon: ShoppingCart },
   { id: 'customers', label: 'Clients', icon: Users },
   { id: 'reports', label: 'Rapports', icon: BarChart3 },
+  { id: 'cash', label: 'Caisse', icon: CreditCard },
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ]
 
@@ -142,9 +144,10 @@ export default function Home() {
         return <Sales />
       case 'customers':
         return <Customers />
-
       case 'reports':
         return <Reports />
+      case 'cash':
+        return <Cash />
       case 'settings':
         return <SettingsPage />
       default:

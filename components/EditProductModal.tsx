@@ -280,7 +280,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix (€) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prix (FCFA) *</label>
                 <input
                   type="number"
                   step="0.01"

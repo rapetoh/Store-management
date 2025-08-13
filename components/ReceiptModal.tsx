@@ -42,9 +42,21 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('')
 
   // Generate QR code data
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
   const generateQRData = () => {
     const itemsText = sale.items && sale.items.length > 0 
-      ? sale.items.map(item => `- ${item.productName}: ${item.quantity} x €${item.unitPrice.toFixed(2)} = €${item.totalPrice.toFixed(2)}`).join('\n')
+      ? sale.items.map(item => `- ${item.productName}: ${item.quantity} x ${item.unitPrice.toLocaleString('fr-FR')} FCFA = ${item.totalPrice.toLocaleString('fr-FR')} FCFA`).join('\n')
       : 'Aucun article'
 
     const qrText = `STOCKFLOW - RECU DE VENTE
@@ -57,8 +69,8 @@ Paiement: ${sale.paymentMethod}
 ARTICLES:
 ${itemsText}
 
-Sous-total: €${(sale.totalAmount || sale.total || 0).toFixed(2)}
-${sale.discountAmount && sale.discountAmount > 0 ? `Remise: -€${sale.discountAmount.toFixed(2)}\n` : ''}${sale.taxAmount && sale.taxAmount > 0 ? `TVA: €${sale.taxAmount.toFixed(2)}\n` : ''}TOTAL: €${(sale.finalAmount || sale.total || 0).toFixed(2)}
+Sous-total: ${(sale.totalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
+${sale.discountAmount && sale.discountAmount > 0 ? `Remise: -${sale.discountAmount.toLocaleString('fr-FR')} FCFA\n` : ''}${sale.taxAmount && sale.taxAmount > 0 ? `TVA: ${sale.taxAmount.toLocaleString('fr-FR')} FCFA\n` : ''}TOTAL: ${(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
 
 ${sale.notes ? `Notes: ${sale.notes}` : ''}
 
@@ -88,18 +100,6 @@ StockFlow - Lomé, Togo`
   }, [sale])
 
   if (!isOpen || !sale) return null
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
 
   const handlePrint = () => {
     if (printRef.current) {
@@ -306,8 +306,8 @@ StockFlow - Lomé, Togo`
                       {item.productName}
                     </div>
                     <div className="item-details text-xs text-right">
-                      <div>{item.quantity} x €{item.unitPrice.toFixed(2)}</div>
-                      <div className="font-medium">€{item.totalPrice.toFixed(2)}</div>
+                                      <div>{item.quantity} x {item.unitPrice.toLocaleString('fr-FR')} FCFA</div>
+                <div className="font-medium">{item.totalPrice.toLocaleString('fr-FR')} FCFA</div>
                     </div>
                   </div>
                 ))
@@ -322,23 +322,23 @@ StockFlow - Lomé, Togo`
             <div className="totals border-t border-dashed border-gray-300 pt-3">
               <div className="total-line">
                 <span>Sous-total:</span>
-                <span>€{(sale.totalAmount || sale.total || 0).toFixed(2)}</span>
+                <span>{(sale.totalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA</span>
               </div>
               {sale.discountAmount && sale.discountAmount > 0 && (
                 <div className="total-line text-green-600">
                   <span>Remise:</span>
-                  <span>-€{sale.discountAmount.toFixed(2)}</span>
+                  <span>-{sale.discountAmount.toLocaleString('fr-FR')} FCFA</span>
                 </div>
               )}
               {sale.taxAmount && sale.taxAmount > 0 && (
                 <div className="total-line">
                   <span>TVA:</span>
-                  <span>€{sale.taxAmount.toFixed(2)}</span>
+                  <span>{sale.taxAmount.toLocaleString('fr-FR')} FCFA</span>
                 </div>
               )}
               <div className="total-line final">
                 <span>TOTAL:</span>
-                <span>€{(sale.finalAmount || sale.total || 0).toFixed(2)}</span>
+                <span>{(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA</span>
               </div>
             </div>
 

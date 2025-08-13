@@ -45,9 +45,20 @@ export default function Products() {
     try {
       const response = await fetch('/api/products')
       const data = await response.json()
-      setProducts(data)
+      
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setProducts(data)
+      } else if (data.error) {
+        console.error('API Error:', data.error)
+        setProducts([])
+      } else {
+        console.error('Unexpected data format:', data)
+        setProducts([])
+      }
     } catch (error) {
       console.error('Error loading products:', error)
+      setProducts([])
     } finally {
       setIsLoading(false)
     }
@@ -124,7 +135,7 @@ export default function Products() {
     const categoryName = typeof product.category === 'object' ? product.category?.name : product.category
     setInfoModalData({
       title: 'Détails du produit',
-      message: `Nom: ${product.name}\nSKU: ${product.sku || 'N/A'}\nCatégorie: ${categoryName || 'Sans catégorie'}\nFournisseur: ${product.supplier || 'N/A'}\nStock: ${product.stock} unités\nPrix: €${product.price.toFixed(2)}\nStatut: ${getProductStatus(product)}\nNiveau d'alerte: ${product.minStock || 5} unités${product.description ? `\n\nDescription: ${product.description}` : ''}`,
+      message: `Nom: ${product.name}\nSKU: ${product.sku || 'N/A'}\nCatégorie: ${categoryName || 'Sans catégorie'}\nFournisseur: ${product.supplier || 'N/A'}\nStock: ${product.stock} unités\nPrix: ${product.price.toLocaleString('fr-FR')} FCFA\nStatut: ${getProductStatus(product)}\nNiveau d'alerte: ${product.minStock || 5} unités${product.description ? `\n\nDescription: ${product.description}` : ''}`,
       type: 'info',
       icon: 'package'
     })
@@ -162,7 +173,7 @@ export default function Products() {
     showToast('success', 'Import terminé', 'Les produits ont été importés avec succès !')
   }
 
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = Array.isArray(products) ? products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
     const categoryName = typeof product.category === 'object' ? product.category?.name : product.category
@@ -170,7 +181,7 @@ export default function Products() {
     const matchesStatus = selectedStatus === 'Tous les statuts' || getProductStatus(product) === selectedStatus
     
     return matchesSearch && matchesCategory && matchesStatus
-  })
+  }) : []
 
   const getProductStatus = (product: Product) => {
     if (product.stock === 0) return 'Rupture'
@@ -323,7 +334,7 @@ export default function Products() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">€{product.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.price.toLocaleString('fr-FR')} FCFA</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(getProductStatus(product))}`}>
                       {getProductStatus(product)}

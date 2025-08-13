@@ -43,20 +43,35 @@ export async function POST(request: NextRequest) {
           session: closedSession,
         })
 
-      case 'count':
-        const { sessionId: countSessionId, ...countData } = data
-        const countedSession = await DatabaseService.countCash(countSessionId, countData)
-        return NextResponse.json({
-          success: true,
-          message: 'Caisse comptée avec succès',
-          session: countedSession,
-        })
+                   case 'count':
+               const { sessionId: countSessionId, ...countData } = data
+               const countedSession = await DatabaseService.countCash(countSessionId, countData)
+               return NextResponse.json({
+                 success: true,
+                 message: 'Caisse comptée avec succès',
+                 session: countedSession,
+               })
 
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Action non reconnue' },
-          { status: 400 }
-        )
+             case 'recalculate':
+               const currentSession = await DatabaseService.getCurrentCashSession()
+               if (!currentSession) {
+                 return NextResponse.json(
+                   { success: false, error: 'Aucune session de caisse ouverte' },
+                   { status: 400 }
+                 )
+               }
+               const recalculatedSession = await DatabaseService.recalculateCashSessionTotals(currentSession.id)
+               return NextResponse.json({
+                 success: true,
+                 message: 'Totaux recalculés avec succès',
+                 session: recalculatedSession,
+               })
+
+             default:
+               return NextResponse.json(
+                 { success: false, error: 'Action non reconnue' },
+                 { status: 400 }
+               )
     }
   } catch (error: any) {
     console.error('Error in cash session operation:', error)

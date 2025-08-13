@@ -718,6 +718,64 @@ export class DatabaseService {
       where: { id },
     })
   }
+
+  static async updateCashSessionSales(sessionId: string, saleAmount: number) {
+    const session = await prisma.cashSession.findUnique({
+      where: { id: sessionId },
+    })
+
+    if (!session) {
+      throw new Error('Session de caisse non trouvée')
+    }
+
+    if (session.status === 'closed') {
+      throw new Error('Cette session de caisse est déjà fermée')
+    }
+
+    // Update the session with the new sale amount
+    return await prisma.cashSession.update({
+      where: { id: sessionId },
+      data: {
+        totalSales: session.totalSales + saleAmount,
+        totalTransactions: session.totalTransactions + 1,
+      },
+    })
+  }
+
+  static async recalculateCashSessionTotals(sessionId: string) {
+    const session = await prisma.cashSession.findUnique({
+      where: { id: sessionId },
+    })
+
+    if (!session) {
+      throw new Error('Session de caisse non trouvée')
+    }
+
+    // Get all cash sales from the session start time
+    const salesData = await prisma.sale.aggregate({
+      _sum: {
+        finalAmount: true,
+      },
+      _count: {
+        id: true,
+      },
+      where: {
+        saleDate: {
+          gte: session.startTime,
+        },
+        paymentMethod: 'cash',
+      },
+    })
+
+    // Update the session with recalculated totals
+    return await prisma.cashSession.update({
+      where: { id: sessionId },
+      data: {
+        totalSales: salesData._sum.finalAmount || 0,
+        totalTransactions: salesData._count.id || 0,
+      },
+    })
+  }
 }
 
 export default DatabaseService 

@@ -154,7 +154,7 @@ export default function Sales() {
   const handleSaleCompleted = (sale: any) => {
     // Refresh sales list from database
     loadSales()
-    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${(sale.total || 0).toFixed(2)}`)
+    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: ${(sale.total || 0).toLocaleString('fr-FR')} FCFA`)
   }
 
   const handleEditSale = async (sale: Sale) => {
@@ -204,7 +204,7 @@ export default function Sales() {
         // Fallback to basic info if detailed fetch fails
         setInfoModalData({
           title: 'Détails de la vente',
-          message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+          message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
           type: 'info',
           icon: 'cart'
         })
@@ -215,7 +215,7 @@ export default function Sales() {
       // Fallback to basic info
       setInfoModalData({
         title: 'Détails de la vente',
-        message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: €${sale.total.toFixed(2)}\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+        message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
         type: 'info',
         icon: 'cart'
       })
@@ -223,9 +223,25 @@ export default function Sales() {
     }
   }
 
-  const handleViewReceipt = (sale: Sale) => {
-    setSelectedSale(sale)
-    setShowReceiptModal(true)
+  const handleViewReceipt = async (sale: Sale) => {
+    try {
+      // Load detailed sale information
+      const response = await fetch(`/api/sales/${sale.id}`)
+      if (response.ok) {
+        const detailedSale = await response.json()
+        setSelectedSale(detailedSale)
+        setShowReceiptModal(true)
+      } else {
+        // Fallback to basic sale data
+        setSelectedSale(sale)
+        setShowReceiptModal(true)
+      }
+    } catch (error) {
+      console.error('Error loading sale details for receipt:', error)
+      // Fallback to basic sale data
+      setSelectedSale(sale)
+      setShowReceiptModal(true)
+    }
   }
 
   const handleExport = () => {
@@ -402,7 +418,7 @@ export default function Sales() {
                     <div className="text-sm text-gray-500">{sale.time}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    €{(sale.total || 0).toFixed(2)}
+                    {(sale.total || 0).toLocaleString('fr-FR')} FCFA
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">

@@ -36,6 +36,20 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Update cash session if payment method is cash
+    if (body.paymentMethod === 'cash' || body.paymentMethod === 'Espèces') {
+      try {
+        const currentSession = await DatabaseService.getCurrentCashSession()
+        if (currentSession) {
+          // Update the cash session with the sale amount
+          await DatabaseService.updateCashSessionSales(currentSession.id, body.finalAmount)
+        }
+      } catch (cashError) {
+        console.error('Error updating cash session:', cashError)
+        // Don't fail the sale if cash session update fails
+      }
+    }
+    
     return NextResponse.json(sale, { status: 201 })
   } catch (error) {
     console.error('Error creating sale:', error)

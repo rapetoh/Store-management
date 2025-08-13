@@ -52,7 +52,7 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
       const dateMatch = match.match(/\[RETOUR - ([^\]]+)\]/)
       const reasonMatch = notes.match(/Raison: ([^\n]+)/)
       const itemsMatch = notes.match(/Articles retournés: ([^\n]+)/)
-      const amountMatch = notes.match(/Montant retourné: €([0-9.]+)/)
+      const amountMatch = notes.match(/Montant retourné: ([0-9.]+) FCFA/)
 
       return {
         date: dateMatch ? dateMatch[1] : '',
@@ -120,7 +120,7 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
                 <DollarSign className="w-4 h-4 text-gray-500" />
                 <span className="text-sm font-medium text-gray-700">Total:</span>
                 <span className="text-sm text-gray-900 font-semibold">
-                  €{(sale.finalAmount || sale.total || 0).toFixed(2)}
+                  {(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
                 </span>
               </div>
               <div className="flex items-center space-x-2">
@@ -187,13 +187,13 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
                           {item.quantity}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                          €{item.unitPrice.toFixed(2)}
+                          {item.unitPrice.toLocaleString('fr-FR')} FCFA
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                          €{item.discount.toFixed(2)}
+                          {item.discount.toLocaleString('fr-FR')} FCFA
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
-                          €{item.totalPrice.toFixed(2)}
+                          {item.totalPrice.toLocaleString('fr-FR')} FCFA
                         </td>
                       </tr>
                     ))}
@@ -221,7 +221,7 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
                         </span>
                       </div>
                       <span className="text-sm font-semibold text-orange-800">
-                        -€{returnInfo.amount.toFixed(2)}
+                        -{returnInfo.amount.toLocaleString('fr-FR')} FCFA
                       </span>
                     </div>
                     <div className="space-y-1">
@@ -238,19 +238,41 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
             </div>
           )}
 
-          {/* Summary */}
-          <div className="bg-gray-50 p-4 rounded-md">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">Total de la vente:</span>
-              <span className="text-lg font-semibold text-gray-900">
-                €{(sale.finalAmount || sale.total || 0).toFixed(2)}
-              </span>
-            </div>
+                     {/* Summary */}
+           <div className="bg-gray-50 p-4 rounded-md">
+             <div className="flex justify-between items-center">
+               <span className="text-sm font-medium text-gray-700">Sous-total:</span>
+               <span className="text-sm font-semibold text-gray-900">
+                 {(sale.totalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
+               </span>
+             </div>
+             {sale.discountAmount && sale.discountAmount > 0 && (
+               <div className="flex justify-between items-center mt-2">
+                 <span className="text-sm font-medium text-green-700">Remise appliquée:</span>
+                 <span className="text-sm font-semibold text-green-700">
+                   -{sale.discountAmount.toLocaleString('fr-FR')} FCFA
+                 </span>
+               </div>
+             )}
+             {sale.taxAmount && sale.taxAmount > 0 && (
+               <div className="flex justify-between items-center mt-2">
+                 <span className="text-sm font-medium text-blue-700">TVA:</span>
+                 <span className="text-sm font-semibold text-blue-700">
+                   +{sale.taxAmount.toLocaleString('fr-FR')} FCFA
+                 </span>
+               </div>
+             )}
+             <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+               <span className="text-sm font-medium text-gray-700">Total final:</span>
+               <span className="text-lg font-semibold text-gray-900">
+                 {(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
+               </span>
+             </div>
             {hasReturns && (
               <div className="flex justify-between items-center mt-2">
                 <span className="text-sm font-medium text-orange-700">Total des retours:</span>
                 <span className="text-sm font-semibold text-orange-700">
-                  -€{returnHistory.reduce((sum, ret) => sum + ret.amount, 0).toFixed(2)}
+                  -{returnHistory.reduce((sum, ret) => sum + ret.amount, 0).toLocaleString('fr-FR')} FCFA
                 </span>
               </div>
             )}
@@ -258,7 +280,7 @@ export default function SaleDetailsModal({ isOpen, onClose, sale }: SaleDetailsM
               <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
                 <span className="text-sm font-medium text-gray-700">Montant net:</span>
                 <span className="text-lg font-semibold text-gray-900">
-                  €{((sale.finalAmount || sale.total || 0) - returnHistory.reduce((sum, ret) => sum + ret.amount, 0)).toFixed(2)}
+                  {((sale.finalAmount || sale.total || 0) - returnHistory.reduce((sum, ret) => sum + ret.amount, 0)).toLocaleString('fr-FR')} FCFA
                 </span>
               </div>
             )}

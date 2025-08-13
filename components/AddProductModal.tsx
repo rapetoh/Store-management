@@ -249,7 +249,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Prix (€) *
+                Prix (FCFA) *
               </label>
               <input
                 type="number"
