@@ -85,7 +85,7 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
       const data = await response.json()
       
       if (data.success) {
-        showToast('success', 'Caisse ouverte', `Caisse ouverte avec €${shiftData.initialAmount.toFixed(2)}`)
+        showToast('success', 'Caisse ouverte', `Caisse ouverte avec ${shiftData.initialAmount.toLocaleString('fr-FR')} FCFA`)
         await loadCashSessionData()
         onClose()
       } else {
@@ -129,7 +129,7 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
         const difference = data.session.difference
         const message = difference === 0 
           ? 'Caisse fermée - Montant correct'
-          : `Caisse fermée - Différence: ${difference > 0 ? '+' : ''}€${difference.toFixed(2)}`
+          : `Caisse fermée - Différence: ${difference > 0 ? '+' : ''}${difference.toLocaleString('fr-FR')} FCFA`
         
         showToast('success', 'Caisse fermée', message)
         await loadCashSessionData()
@@ -173,8 +173,8 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
       if (data.success) {
         const difference = data.session.difference
         const message = difference === 0 
-          ? `Comptage terminé - Montant correct: €${countedAmount.toFixed(2)}`
-          : `Comptage terminé - Différence: ${difference > 0 ? '+' : ''}€${difference.toFixed(2)}`
+          ? `Comptage terminé - Montant correct: ${countedAmount.toLocaleString('fr-FR')} FCFA`
+          : `Comptage terminé - Différence: ${difference > 0 ? '+' : ''}${difference.toLocaleString('fr-FR')} FCFA`
         
         showToast('success', 'Comptage terminé', message)
         await loadCashSessionData()
@@ -326,11 +326,11 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Montant initial</p>
-                      <p className="font-medium">€{currentSession.openingAmount.toFixed(2)}</p>
+                      <p className="font-medium">{currentSession.openingAmount.toLocaleString('fr-FR')} FCFA</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Ventes</p>
-                      <p className="font-medium">€{currentSession.totalSales.toFixed(2)}</p>
+                      <p className="font-medium">{currentSession.totalSales.toLocaleString('fr-FR')} FCFA</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Transactions</p>
@@ -342,7 +342,7 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Montant attendu</p>
-                      <p className="font-medium">€{(currentSession.openingAmount + currentSession.totalSales).toFixed(2)}</p>
+                      <p className="font-medium">{(currentSession.openingAmount + currentSession.totalSales).toLocaleString('fr-FR')} FCFA</p>
                     </div>
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                     <span className="text-sm font-medium text-blue-900">Différence</span>
                   </div>
                   <p className="text-sm text-blue-700">
-                    Différence: {(countedAmount - (currentSession.openingAmount + currentSession.totalSales)) > 0 ? '+' : ''}€{(countedAmount - (currentSession.openingAmount + currentSession.totalSales)).toFixed(2)}
+                    Différence: {(countedAmount - (currentSession.openingAmount + currentSession.totalSales)) > 0 ? '+' : ''}{(countedAmount - (currentSession.openingAmount + currentSession.totalSales)).toLocaleString('fr-FR')} FCFA
                   </p>
                 </div>
               )}
@@ -411,15 +411,15 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-600">Montant initial</p>
-                        <p className="font-medium">€{currentSession.openingAmount.toFixed(2)}</p>
+                        <p className="font-medium">{currentSession.openingAmount.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Ventes</p>
-                        <p className="font-medium">€{currentSession.totalSales.toFixed(2)}</p>
+                        <p className="font-medium">{currentSession.totalSales.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Montant attendu</p>
-                        <p className="font-medium">€{(currentSession.openingAmount + currentSession.totalSales).toFixed(2)}</p>
+                        <p className="font-medium">{(currentSession.openingAmount + currentSession.totalSales).toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Caissier</p>

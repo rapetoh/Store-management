@@ -79,7 +79,7 @@ export default function Dashboard() {
   }
 
   const handleSaleCompleted = (sale: any) => {
-    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: €${sale.total.toFixed(2)}`)
+    showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA`)
     // Refresh stats after sale
     loadStats()
   }
@@ -112,7 +112,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { title: 'Total Produits', value: isLoading ? '...' : (stats?.totalProducts || 0).toString(), icon: Package, color: 'bg-blue-500', change: '' },
-          { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `€${(stats?.todayRevenue || 0).toFixed(2)}`, icon: DollarSign, color: 'bg-green-500', change: '' },
+          { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: DollarSign, color: 'bg-green-500', change: '' },
           { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '' },
           { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '' },
         ].map((stat, index) => (

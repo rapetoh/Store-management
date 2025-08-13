@@ -434,15 +434,15 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
       =================================
       ${cart.map(item => `
       ${item.name}
-      ${item.quantity} x €${item.originalPrice.toFixed(2)} = €${(item.quantity * item.originalPrice).toFixed(2)}
-      ${item.discount > 0 ? `Remise: -€${(item.discount * item.quantity).toFixed(2)}` : ''}
+      ${item.quantity} x ${item.originalPrice.toLocaleString('fr-FR')} FCFA = ${(item.quantity * item.originalPrice).toLocaleString('fr-FR')} FCFA
+      ${item.discount > 0 ? `Remise: -${(item.discount * item.quantity).toLocaleString('fr-FR')} FCFA` : ''}
       `).join('')}
       =================================
-      Sous-total: €${getSubtotal().toFixed(2)}
-      ${appliedPromos.length > 0 ? `Remise promo: -€${getPromoDiscount().toFixed(2)}` : ''}
-      ${appliedDiscount ? `Remise: -€${getDiscountAmount().toFixed(2)}` : ''}
-      TVA (20%): €${((getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2).toFixed(2)}
-      TOTAL: €${getTotal().toFixed(2)}
+      Sous-total: ${getSubtotal().toLocaleString('fr-FR')} FCFA
+      ${appliedPromos.length > 0 ? `Remise promo: -${getPromoDiscount().toLocaleString('fr-FR')} FCFA` : ''}
+      ${appliedDiscount ? `Remise: -${getDiscountAmount().toLocaleString('fr-FR')} FCFA` : ''}
+      TVA (20%): ${((getSubtotal() - getPromoDiscount() - getDiscountAmount()) * 0.2).toLocaleString('fr-FR')} FCFA
+      TOTAL: ${getTotal().toLocaleString('fr-FR')} FCFA
       =================================
       Méthode de paiement: ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}
       =================================
@@ -707,7 +707,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                             <div className="text-xs text-gray-400 truncate">Code: {product.barcode}</div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className="font-medium text-gray-900 whitespace-nowrap">€{product.price.toFixed(2)}</div>
+                            <div className="font-medium text-gray-900 whitespace-nowrap">{product.price.toLocaleString('fr-FR')} FCFA</div>
                           </div>
                         </div>
                       </div>
@@ -731,10 +731,10 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{item.name}</div>
                           <div className="text-sm text-gray-500">
-                            €{item.originalPrice.toFixed(2)} l'unité
+                            {item.originalPrice.toLocaleString('fr-FR')} FCFA l'unité
                             {item.discount > 0 && (
                               <span className="text-green-600 ml-2">
-                                -{item.discount}{item.discountType === 'percentage' ? '%' : '€'}
+                                -{item.discount}{item.discountType === 'percentage' ? '%' : ' FCFA'}
                               </span>
                             )}
                           </div>
@@ -756,7 +756,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                             </button>
                           </div>
                           <div className="text-right">
-                            <div className="font-medium text-gray-900">€{item.total.toFixed(2)}</div>
+                            <div className="font-medium text-gray-900">{item.total.toLocaleString('fr-FR')} FCFA</div>
                           </div>
                           <button
                             onClick={() => removeFromCart(item.id)}
@@ -995,10 +995,10 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                               </div>
                               <div className="text-right">
                                 <div className="font-medium text-green-600">
-                                  {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                                  {promo.type === 'percentage' ? `${promo.value}%` : `${promo.value} FCFA`}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  Min: €{promo.minAmount}
+                                  Min: {promo.minAmount.toLocaleString('fr-FR')} FCFA
                                 </div>
                               </div>
                             </div>
@@ -1036,7 +1036,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-green-700 text-sm font-medium">
-                              -€{promo.type === 'percentage' ? ((getSubtotal() * promo.value) / 100).toFixed(2) : promo.value.toFixed(2)}
+                              -{promo.type === 'percentage' ? ((getSubtotal() * promo.value) / 100).toLocaleString('fr-FR') : promo.value.toLocaleString('fr-FR')} FCFA
                             </span>
                             <button
                               onClick={() => removePromoCode(promo.code)}
@@ -1082,7 +1082,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                       <span className={`${
                         appliedPromos.some(p => p.code === promo.code) ? 'text-blue-700' : 'text-gray-500'
                       }`}>
-                        {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                        {promo.type === 'percentage' ? `${promo.value}%` : `${promo.value} FCFA`}
                       </span>
                     </div>
                     <div className={`mt-1 ${
@@ -1115,7 +1115,7 @@ export default function QuickSaleModal({ isOpen, onClose, onSaleCompleted }: Qui
                         <p className="text-sm text-purple-700">{appliedDiscount.description}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-purple-900">-€{appliedDiscount.appliedAmount?.toFixed(2)}</p>
+                        <p className="font-bold text-purple-900">-{appliedDiscount.appliedAmount?.toLocaleString('fr-FR')} FCFA</p>
                         <button
                           onClick={removeDiscount}
                           className="text-red-500 hover:text-red-700 text-sm"
