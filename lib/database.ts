@@ -608,14 +608,11 @@ export class DatabaseService {
       throw new Error('Session de caisse non trouvée')
     }
 
-    if (session.status !== 'open') {
+    if (session.status !== 'open' && session.status !== 'counted') {
       throw new Error('Cette session de caisse n\'est pas ouverte')
     }
 
     // Calculate expected amount from sales
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
     const salesData = await prisma.sale.aggregate({
       _sum: {
         finalAmount: true,
@@ -625,14 +622,14 @@ export class DatabaseService {
       },
       where: {
         saleDate: {
-          gte: today,
+          gte: session.startTime,
         },
         paymentMethod: 'cash',
       },
     })
 
     const expectedAmount = session.openingAmount + (salesData._sum.finalAmount || 0)
-    const difference = data.actualAmount - expectedAmount
+    const difference = expectedAmount - data.actualAmount
 
     return await prisma.cashSession.update({
       where: { id: sessionId },
@@ -665,9 +662,6 @@ export class DatabaseService {
     }
 
     // Calculate expected amount from sales
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
     const salesData = await prisma.sale.aggregate({
       _sum: {
         finalAmount: true,
@@ -677,14 +671,14 @@ export class DatabaseService {
       },
       where: {
         saleDate: {
-          gte: today,
+          gte: session.startTime,
         },
         paymentMethod: 'cash',
       },
     })
 
     const expectedAmount = session.openingAmount + (salesData._sum.finalAmount || 0)
-    const difference = data.actualAmount - expectedAmount
+    const difference = expectedAmount - data.actualAmount
 
     return await prisma.cashSession.update({
       where: { id: sessionId },
@@ -701,7 +695,13 @@ export class DatabaseService {
 
   static async getCurrentCashSession() {
     return await prisma.cashSession.findFirst({
-      where: { status: 'open' },
+      where: { 
+        OR: [
+          { status: 'open' },
+          { status: 'counted' },
+          { endTime: null }
+        ]
+      },
       orderBy: { startTime: 'desc' },
     })
   }
@@ -767,13 +767,150 @@ export class DatabaseService {
       },
     })
 
+    const totalSales = salesData._sum.finalAmount || 0
+    const expectedAmount = session.openingAmount + totalSales
+
     // Update the session with recalculated totals
     return await prisma.cashSession.update({
       where: { id: sessionId },
       data: {
-        totalSales: salesData._sum.finalAmount || 0,
+        totalSales,
         totalTransactions: salesData._count.id || 0,
+        expectedAmount,
       },
+    })
+  }
+
+  static async updateCashSession(sessionId: string, updates: any) {
+    const session = await prisma.cashSession.findUnique({
+      where: { id: sessionId },
+    })
+
+    if (!session) {
+      throw new Error('Session de caisse non trouvée')
+    }
+
+    // Prepare update data
+    const updateData: any = {}
+
+    // Allow updating specific fields
+    if (updates.actualAmount !== undefined) {
+      updateData.actualAmount = updates.actualAmount
+    }
+
+    if (updates.status !== undefined) {
+      updateData.status = updates.status
+    }
+
+    if (updates.notes !== undefined) {
+      updateData.notes = updates.notes
+    }
+
+    // Recalculate difference if actual amount changed
+    if (updates.actualAmount !== undefined) {
+      const expectedAmount = session.expectedAmount || (session.openingAmount + session.totalSales)
+      updateData.difference = expectedAmount - updates.actualAmount
+    }
+
+    // Update the session
+    return await prisma.cashSession.update({
+      where: { id: sessionId },
+      data: updateData,
+    })
+  }
+
+  static async createUnassignedCashSession() {
+    // Create a temporary session for unassigned cash sales
+    return await prisma.cashSession.create({
+      data: {
+        sessionDate: new Date(),
+        startTime: new Date(),
+        openingAmount: 0,
+        totalSales: 0,
+        totalTransactions: 0,
+        status: 'unassigned',
+        cashierName: 'Ventes non assignées',
+        notes: 'Session automatique pour ventes sans caisse ouverte',
+      },
+    })
+  }
+
+  // Tax Rate Management
+  static async getTaxRates() {
+    return await prisma.taxRate.findMany({
+      orderBy: [
+        { isDefault: 'desc' },
+        { name: 'asc' }
+      ]
+    })
+  }
+
+  static async getDefaultTaxRate() {
+    return await prisma.taxRate.findFirst({
+      where: { isDefault: true }
+    })
+  }
+
+  static async createTaxRate(data: {
+    name: string
+    rate: number
+    isDefault?: boolean
+    description?: string
+  }) {
+    // If this is the new default, unset the current default
+    if (data.isDefault) {
+      await prisma.taxRate.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false }
+      })
+    }
+
+    return await prisma.taxRate.create({
+      data: {
+        name: data.name,
+        rate: data.rate,
+        isDefault: data.isDefault || false,
+        description: data.description
+      }
+    })
+  }
+
+  static async updateTaxRate(id: string, data: {
+    name?: string
+    rate?: number
+    isDefault?: boolean
+    description?: string
+    isActive?: boolean
+  }) {
+    // If this is the new default, unset the current default
+    if (data.isDefault) {
+      await prisma.taxRate.updateMany({
+        where: { 
+          isDefault: true,
+          id: { not: id }
+        },
+        data: { isDefault: false }
+      })
+    }
+
+    return await prisma.taxRate.update({
+      where: { id },
+      data
+    })
+  }
+
+  static async deleteTaxRate(id: string) {
+    // Check if tax rate is used by any products
+    const productsUsingTaxRate = await prisma.product.count({
+      where: { taxRateId: id }
+    })
+
+    if (productsUsingTaxRate > 0) {
+      throw new Error(`Ce taux de TVA est utilisé par ${productsUsingTaxRate} produit(s) et ne peut pas être supprimé`)
+    }
+
+    return await prisma.taxRate.delete({
+      where: { id }
     })
   }
 }

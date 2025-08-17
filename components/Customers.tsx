@@ -86,29 +86,36 @@ export default function Customers() {
     showToast('success', 'Client modifié', `Le client "${updatedCustomer.name}" a été modifié avec succès !`)
   }
 
-  const handleDeleteCustomer = (customer: Customer) => {
+  const handleToggleCustomerStatus = (customer: Customer) => {
     setSelectedCustomer(customer)
     setShowDeleteModal(true)
   }
 
-  const confirmDelete = async () => {
+  const confirmToggleStatus = async () => {
     if (selectedCustomer) {
       try {
         const response = await fetch(`/api/customers/${selectedCustomer.id}`, {
-          method: 'DELETE',
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            isActive: !selectedCustomer.isActive,
+          }),
         })
 
         if (!response.ok) {
-          throw new Error('Failed to delete customer')
+          throw new Error('Failed to update customer status')
         }
 
         loadCustomers()
-        showToast('success', 'Client supprimé', `Le client "${selectedCustomer.name}" a été supprimé avec succès.`)
+        const action = selectedCustomer.isActive ? 'désactivé' : 'activé'
+        showToast('success', 'Statut modifié', `Le client "${selectedCustomer.name}" a été ${action} avec succès.`)
         setSelectedCustomer(null)
         setShowDeleteModal(false)
       } catch (error) {
-        console.error('Error deleting customer:', error)
-        showToast('error', 'Erreur', 'Erreur lors de la suppression du client')
+        console.error('Error updating customer status:', error)
+        showToast('error', 'Erreur', 'Erreur lors de la modification du statut du client')
       }
     }
   }
@@ -119,7 +126,7 @@ export default function Customers() {
       title: 'Détails du client',
       message: `Nom: ${customer.name}\nEmail: ${customer.email || 'N/A'}\nTéléphone: ${customer.phone || 'N/A'}\nAdresse: ${customer.address || 'N/A'}\nCarte de fidélité: ${customer.loyaltyCard || 'N/A'}\nTotal des achats: ${customer.totalPurchases || 0}€\nDernier achat: ${customer.lastPurchase || 'Aucun'}`,
       type: 'info',
-      icon: 'users'
+      icon: 'info'
     })
     setShowInfoModal(true)
   }
@@ -277,20 +284,20 @@ export default function Customers() {
                 </tr>
               ) : (
                 filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
+                  <tr key={customer.id} className={`hover:bg-gray-50 ${!customer.isActive ? 'opacity-60' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <Users className="w-5 h-5 text-blue-600" />
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                          <div className={`text-sm font-medium ${!customer.isActive ? 'text-gray-500' : 'text-gray-900'}`}>{customer.name}</div>
                           <div className="text-sm text-gray-500">{customer.address}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className={`text-sm ${!customer.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
                         {customer.email && (
                           <div className="flex items-center space-x-1">
                             <Mail className="w-3 h-3 text-gray-400" />
@@ -308,10 +315,10 @@ export default function Customers() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-1">
                         <CreditCard className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{customer.loyaltyCard || 'N/A'}</span>
+                        <span className={`text-sm ${!customer.isActive ? 'text-gray-500' : 'text-gray-900'}`}>{customer.loyaltyCard || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${!customer.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
                       €{(customer.totalPurchases || 0).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -340,11 +347,15 @@ export default function Customers() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteCustomer(customer)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Supprimer"
+                          onClick={() => handleToggleCustomerStatus(customer)}
+                          className={customer.isActive ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
+                          title={customer.isActive ? "Désactiver" : "Activer"}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {customer.isActive ? (
+                            <Trash2 className="w-4 h-4" />
+                          ) : (
+                            <Users className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -373,9 +384,12 @@ export default function Customers() {
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        onConfirm={confirmDelete}
-        title="Supprimer le client"
-        message={`Êtes-vous sûr de vouloir supprimer le client "${selectedCustomer?.name}" ? Cette action est irréversible.`}
+        onConfirm={confirmToggleStatus}
+        title={selectedCustomer?.isActive ? "Désactiver le client" : "Activer le client"}
+        message={selectedCustomer?.isActive 
+          ? `Êtes-vous sûr de vouloir désactiver le client "${selectedCustomer?.name}" ? Il ne sera plus visible dans les ventes mais restera dans l'historique.`
+          : `Êtes-vous sûr de vouloir réactiver le client "${selectedCustomer?.name}" ?`
+        }
       />
 
       <InfoModal

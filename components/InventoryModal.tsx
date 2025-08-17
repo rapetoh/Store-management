@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Package, AlertTriangle, TrendingUp, TrendingDown, Plus, Minus, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface InventoryModalProps {
@@ -41,17 +41,100 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
   })
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Base de données des produits
-  const products: Product[] = [
-    { id: '1', name: 'Lait 1L', sku: 'LAIT001', currentStock: 50, minStock: 10, maxStock: 100, location: 'Rayon A1', category: 'Alimentation' },
-    { id: '2', name: 'Pain baguette', sku: 'PAIN002', currentStock: 8, minStock: 15, maxStock: 50, location: 'Rayon B2', category: 'Boulangerie' },
-    { id: '3', name: 'Yaourt nature', sku: 'YAOURT003', currentStock: 100, minStock: 20, maxStock: 200, location: 'Rayon A3', category: 'Alimentation' },
-    { id: '4', name: 'Pommes Golden', sku: 'POMME004', currentStock: 25, minStock: 10, maxStock: 80, location: 'Rayon C1', category: 'Fruits' },
-    { id: '5', name: 'Eau minérale 1.5L', sku: 'EAU005', currentStock: 80, minStock: 30, maxStock: 150, location: 'Rayon D2', category: 'Boissons' },
-    { id: '6', name: 'Chips nature', sku: 'CHIPS006', currentStock: 45, minStock: 15, maxStock: 100, location: 'Rayon E1', category: 'Snacks' },
-    { id: '7', name: 'Café moulu 250g', sku: 'CAFE007', currentStock: 3, minStock: 8, maxStock: 50, location: 'Rayon F3', category: 'Alimentation' },
-    { id: '8', name: 'Bananes 1kg', sku: 'BANANE008', currentStock: 35, minStock: 12, maxStock: 60, location: 'Rayon C2', category: 'Fruits' }
-  ]
+  // State for real products from database
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
+
+  // State for search and pagination
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    totalCount: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
+
+  // Load categories from database
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data.categories || [])
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  // Load products from database with pagination and search
+  const loadProducts = async (page = 1, search = '', category = '') => {
+    setIsLoadingProducts(true)
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+        search: search,
+        categoryId: category,
+        isActive: 'true' // Only show active products for stock adjustment
+      })
+
+      const response = await fetch(`/api/products?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Transform database products to match the interface
+        const transformedProducts = data.products.map((product: any) => ({
+          id: product.id,
+          name: product.name,
+          sku: product.sku || `SKU-${product.id.slice(-6)}`,
+          currentStock: product.stock,
+          minStock: product.minStock,
+          maxStock: product.minStock * 3, // Estimate max stock
+          location: 'Rayon A1', // Default location since we don't have this in our schema
+          category: product.category?.name || 'Général'
+        }))
+        
+        if (page === 1) {
+          setProducts(transformedProducts)
+        } else {
+          setProducts(prev => [...prev, ...transformedProducts])
+        }
+        setPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error loading products:', error)
+    } finally {
+      setIsLoadingProducts(false)
+    }
+  }
+
+  // Load more products (infinite scroll)
+  const loadMoreProducts = () => {
+    if (pagination.hasNextPage && !isLoadingProducts) {
+      loadProducts(pagination.page + 1, searchTerm, selectedCategory)
+    }
+  }
+
+  // Load products and categories when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadCategories()
+      loadProducts(1, searchTerm, selectedCategory)
+    }
+  }, [isOpen])
+
+  // Reload products when search or category changes
+  useEffect(() => {
+    if (isOpen) {
+      setProducts([]) // Clear current products
+      setPagination(prev => ({ ...prev, page: 1 })) // Reset to page 1
+      loadProducts(1, searchTerm, selectedCategory)
+    }
+  }, [searchTerm, selectedCategory])
 
   const locations = ['Rayon A1', 'Rayon A2', 'Rayon A3', 'Rayon B1', 'Rayon B2', 'Rayon B3', 'Rayon C1', 'Rayon C2', 'Entrepôt', 'Réserve']
 
@@ -169,31 +252,59 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
 
   const processInventoryUpdate = async () => {
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
 
-    let updateData: any = { type, timestamp: new Date().toISOString() }
+    try {
+      let updateData: any = { type, timestamp: new Date().toISOString() }
 
-    switch (type) {
-      case 'adjustment':
-        updateData.adjustments = adjustments
-        break
-      case 'transfer':
-        updateData.transfer = transferData
-        break
-      case 'alert':
-        updateData.alerts = {
-          lowStock: getLowStockProducts(),
-          overStock: getOverStockProducts()
-        }
-        break
-      case 'count':
-        updateData.count = adjustments
-        break
+      switch (type) {
+        case 'adjustment':
+          // Actually update the database
+          if (adjustments.length > 0) {
+            const response = await fetch('/api/products/adjust-stock', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ adjustments })
+            })
+
+            if (!response.ok) {
+              throw new Error('Erreur lors de l\'ajustement du stock')
+            }
+
+            const result = await response.json()
+            updateData.adjustments = adjustments
+            updateData.results = result.results
+
+            // Show success message
+            showToast('success', 'Ajustements effectués', `${result.results.filter((r: any) => r.success).length} produits mis à jour`)
+          }
+          break
+        case 'transfer':
+          updateData.transfer = transferData
+          showToast('info', 'Transfert', 'Fonctionnalité de transfert à implémenter')
+          break
+        case 'alert':
+          updateData.alerts = {
+            lowStock: getLowStockProducts(),
+            overStock: getOverStockProducts()
+          }
+          showToast('info', 'Alertes', 'Alertes de stock affichées')
+          break
+        case 'count':
+          updateData.count = adjustments
+          showToast('info', 'Inventaire', 'Inventaire physique à implémenter')
+          break
+      }
+
+      onInventoryUpdated(updateData)
+    } catch (error) {
+      console.error('Error processing inventory update:', error)
+      showToast('error', 'Erreur', 'Erreur lors du traitement des ajustements')
+    } finally {
+      setIsProcessing(false)
+      onClose()
     }
-
-    onInventoryUpdated(updateData)
-    setIsProcessing(false)
-    onClose()
   }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
@@ -233,10 +344,55 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
         <div className="p-6">
           {type === 'adjustment' && (
             <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Sélectionner les produits</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {products.map(product => (
+                             <div>
+                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Sélectionner les produits</h3>
+                 
+                 {/* Search and Filter Bar */}
+                 <div className="mb-4 space-y-3">
+                   <div className="flex gap-3">
+                     <div className="flex-1">
+                       <input
+                         type="text"
+                         placeholder="Rechercher par nom, SKU ou code-barres..."
+                         value={searchTerm}
+                         onChange={(e) => setSearchTerm(e.target.value)}
+                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       />
+                     </div>
+                     <div className="w-48">
+                                               <select
+                          value={selectedCategory}
+                          onChange={(e) => setSelectedCategory(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Toutes les catégories</option>
+                          {categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                     </div>
+                   </div>
+                   <div className="text-sm text-gray-600">
+                     {pagination.totalCount > 0 && (
+                       <span>{pagination.totalCount} produit{pagination.totalCount !== 1 ? 's' : ''} trouvé{pagination.totalCount !== 1 ? 's' : ''}</span>
+                     )}
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {isLoadingProducts ? (
+                    <div className="col-span-2 text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                      <p className="text-gray-600">Chargement des produits...</p>
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="col-span-2 text-center py-8">
+                      <p className="text-gray-600">Aucun produit trouvé</p>
+                    </div>
+                  ) : (
+                    products.map(product => (
                     <div
                       key={product.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -264,8 +420,22 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                                     ))
+                   )}
+                   
+                   {/* Load More Button */}
+                   {pagination.hasNextPage && (
+                     <div className="col-span-2 text-center pt-4">
+                       <button
+                         onClick={loadMoreProducts}
+                         disabled={isLoadingProducts}
+                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                         {isLoadingProducts ? 'Chargement...' : 'Charger plus de produits'}
+                       </button>
+                     </div>
+                   )}
+                 </div>
               </div>
 
               {selectedProducts.length > 0 && (

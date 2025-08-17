@@ -10,6 +10,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Tax rates table
+model TaxRate {
+  id          String    @id @default(cuid())
+  name        String
+  rate        Float
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  products    Product[]
+  
+  @@index([isDefault])
+  @@index([isActive])
+}
+
 // Categories for products
 model Category {
   id          String    @id @default(cuid())
@@ -31,19 +49,30 @@ model Product {
   minStock    Int       @default(0)
   barcode     String?   @unique
   sku         String?   @unique
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
   image       String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
-  // Relations
-  saleItems   SaleItem[]
-  inventoryMovements InventoryMovement[]
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  taxRateId   String?
+  taxRate     TaxRate?  @relation(fields: [taxRateId], references: [id])
   
+  saleItems   SaleItem[]
+  movements   InventoryMovement[]
+  
+  @@index([name])
   @@index([barcode])
+  @@index([sku])
+  @@index([isActive])
+  @@index([stock])
   @@index([categoryId])
+  @@index([taxRateId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([name, isActive])
+  @@index([stock, minStock])
 }
 
 // Customers table

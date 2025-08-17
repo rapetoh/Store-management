@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Package, Calendar, Download, Printer, Filter, PieChart, LineChart } from 'lucide-react'
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
@@ -26,6 +26,8 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
   const [selectedFilters, setSelectedFilters] = useState<any>({})
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedReport, setGeneratedReport] = useState<ReportData | null>(null)
+  const [categories, setCategories] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const periods = [
     { id: 'today', label: 'Aujourd\'hui' },
@@ -36,31 +38,26 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
     { id: 'custom', label: 'Période personnalisée' }
   ]
 
-  // Données simulées pour les graphiques
-  const salesData = [
-    { date: '2024-01-01', sales: 1200, transactions: 45, avgTicket: 26.67 },
-    { date: '2024-01-02', sales: 1350, transactions: 52, avgTicket: 25.96 },
-    { date: '2024-01-03', sales: 980, transactions: 38, avgTicket: 25.79 },
-    { date: '2024-01-04', sales: 1650, transactions: 61, avgTicket: 27.05 },
-    { date: '2024-01-05', sales: 1420, transactions: 55, avgTicket: 25.82 },
-    { date: '2024-01-06', sales: 2100, transactions: 78, avgTicket: 26.92 },
-    { date: '2024-01-07', sales: 1850, transactions: 68, avgTicket: 27.21 }
-  ]
+  // Load categories on mount
+  useEffect(() => {
+    if (isOpen) {
+      loadCategories()
+      // Auto-generate report when modal opens
+      generateReport()
+    }
+  }, [isOpen])
 
-  const productPerformance = [
-    { name: 'Lait 1L', sales: 450, revenue: 540, margin: 0.15 },
-    { name: 'Pain baguette', sales: 320, revenue: 272, margin: 0.25 },
-    { name: 'Yaourt nature', sales: 280, revenue: 182, margin: 0.20 },
-    { name: 'Pommes Golden', sales: 180, revenue: 450, margin: 0.30 },
-    { name: 'Eau minérale', sales: 150, revenue: 135, margin: 0.10 }
-  ]
-
-  const customerSegments = [
-    { name: 'Fidèles', value: 45, color: '#3B82F6' },
-    { name: 'Occasionnels', value: 30, color: '#10B981' },
-    { name: 'Nouveaux', value: 15, color: '#F59E0B' },
-    { name: 'Inactifs', value: 10, color: '#EF4444' }
-  ]
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data.categories || [])
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
 
   const getTitle = () => {
     switch (type) {
@@ -97,45 +94,345 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
 
   const generateReport = async () => {
     setIsGenerating(true)
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    setIsLoading(true)
+    
+    try {
+      // Calculate date range based on selected period
+      const now = new Date()
+      let startDate = new Date()
+      
+      switch (selectedPeriod) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case 'week':
+          startDate.setDate(now.getDate() - 7)
+          break
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3)
+          break
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1)
+          break
+        default:
+          startDate.setMonth(now.getMonth() - 1)
+      }
 
-    const report: ReportData = {
-      id: `REP${Date.now()}`,
-      name: `${getTitle()} - ${periods.find(p => p.id === selectedPeriod)?.label}`,
-      type,
-      period: selectedPeriod,
-      data: {
-        salesData,
-        productPerformance,
-        customerSegments,
-        summary: {
-          totalSales: 10550,
-          totalTransactions: 417,
-          averageTicket: 25.30,
-          topProduct: 'Lait 1L',
-          growthRate: 12.5
-        }
-      },
-      generatedAt: new Date().toISOString(),
-      filters: selectedFilters
+      const dateParams = `startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`
+      const categoryParam = selectedFilters.category ? `&categoryId=${selectedFilters.category}` : ''
+      const paymentMethodParam = selectedFilters.paymentMethod ? `&paymentMethod=${selectedFilters.paymentMethod}` : ''
+      const filterParams = `${dateParams}${categoryParam}${paymentMethodParam}`
+
+      // Fetch real data based on report type
+      let reportData: any = {}
+      
+      switch (type) {
+        case 'sales':
+          const salesReportRes = await fetch(`/api/reports/sales?${filterParams}`)
+          if (salesReportRes.ok) {
+            const salesData = await salesReportRes.json()
+            reportData = {
+              salesData: salesData.chartData || [],
+              summary: {
+                totalSales: salesData.totals?.totalSales || 0,
+                totalRevenue: salesData.totals?.totalRevenue || 0,
+                totalDiscount: salesData.totals?.totalDiscount || 0,
+                totalTax: salesData.totals?.totalTax || 0,
+                averageTicket: salesData.totals?.totalSales > 0 
+                  ? salesData.totals.totalRevenue / salesData.totals.totalSales 
+                  : 0
+              },
+              paymentMethods: salesData.paymentMethods || []
+            }
+          }
+          break
+
+        case 'inventory':
+          const inventoryReportRes = await fetch('/api/reports/inventory')
+          if (inventoryReportRes.ok) {
+            const inventoryData = await inventoryReportRes.json()
+            reportData = {
+              inventoryData: inventoryData,
+              summary: {
+                totalProducts: inventoryData.metrics?.totalProducts || 0,
+                totalValue: inventoryData.metrics?.totalValue || 0,
+                lowStockProducts: inventoryData.metrics?.lowStockProducts || 0,
+                outOfStockProducts: inventoryData.metrics?.outOfStockProducts || 0
+              }
+            }
+          }
+          break
+
+        case 'customers':
+          const customersReportRes = await fetch(`/api/reports/customers?${filterParams}`)
+          if (customersReportRes.ok) {
+            const customersData = await customersReportRes.json()
+            reportData = {
+              customersData: customersData.customers || [],
+              segmentBreakdown: customersData.segmentBreakdown || [],
+              summary: {
+                totalCustomers: customersData.summary?.totalCustomers || 0,
+                totalRevenue: customersData.summary?.totalRevenue || 0,
+                averageOrderValue: customersData.summary?.averageOrderValue || 0
+              }
+            }
+          }
+          break
+
+        case 'financial':
+          // Combine sales and inventory data for financial report
+          const [financialSalesRes, financialInventoryRes] = await Promise.all([
+            fetch(`/api/reports/sales?${filterParams}`),
+            fetch('/api/reports/inventory')
+          ])
+          
+          if (financialSalesRes.ok && financialInventoryRes.ok) {
+            const [salesData, inventoryData] = await Promise.all([
+              financialSalesRes.json(),
+              financialInventoryRes.json()
+            ])
+            
+            reportData = {
+              salesData: salesData.chartData || [],
+              inventoryData: inventoryData,
+              summary: {
+                totalRevenue: salesData.totals?.totalRevenue || 0,
+                totalCost: inventoryData.metrics?.totalCost || 0,
+                totalProfit: (salesData.totals?.totalRevenue || 0) - (inventoryData.metrics?.totalCost || 0),
+                profitMargin: salesData.totals?.totalRevenue > 0 
+                  ? ((salesData.totals.totalRevenue - (inventoryData.metrics?.totalCost || 0)) / salesData.totals.totalRevenue) * 100
+                  : 0
+              }
+            }
+          }
+          break
+
+        case 'custom':
+          // Custom report - combine multiple data sources
+          const [customSalesRes, customInventoryRes, customCustomersRes] = await Promise.all([
+            fetch(`/api/reports/sales?${filterParams}`),
+            fetch('/api/reports/inventory'),
+            fetch(`/api/reports/customers?${filterParams}`)
+          ])
+          
+          if (customSalesRes.ok && customInventoryRes.ok && customCustomersRes.ok) {
+            const [salesData, inventoryData, customersData] = await Promise.all([
+              customSalesRes.json(),
+              customInventoryRes.json(),
+              customCustomersRes.json()
+            ])
+            
+            reportData = {
+              salesData: salesData.chartData || [],
+              inventoryData: inventoryData,
+              customersData: customersData.customers || [],
+              summary: {
+                totalRevenue: salesData.totals?.totalRevenue || 0,
+                totalProducts: inventoryData.metrics?.totalProducts || 0,
+                totalCustomers: customersData.summary?.totalCustomers || 0
+              }
+            }
+          }
+          break
+      }
+
+      // Create the report object
+      const newReport: ReportData = {
+        id: `report-${Date.now()}`,
+        name: getTitle(),
+        type: type,
+        period: selectedPeriod,
+        data: reportData,
+        generatedAt: new Date().toISOString(),
+        filters: selectedFilters
+      }
+
+      setGeneratedReport(newReport)
+      setIsGenerating(false)
+      setIsLoading(false)
+      
+      // Call the callback
+      onReportGenerated(newReport)
+      
+    } catch (error) {
+      console.error('Error generating report:', error)
+      setIsGenerating(false)
+      setIsLoading(false)
     }
-
-    setGeneratedReport(report)
-    setIsGenerating(false)
   }
 
   const exportReport = (format: 'pdf' | 'excel' | 'csv') => {
-    showToast('success', 'Export', `Rapport exporté en ${format.toUpperCase()}`)
+    if (!generatedReport) {
+      showToast('error', 'Erreur', 'Aucun rapport généré à exporter')
+      return
+    }
+
+    try {
+      let content = ''
+      let filename = `rapport_${type}_${new Date().toISOString().split('T')[0]}`
+
+      if (format === 'csv') {
+        // Generate CSV content
+        content = generateCSVContent()
+        filename += '.csv'
+        
+        // Create and download CSV file
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = filename
+        link.click()
+        
+        showToast('success', 'Export CSV', 'Rapport exporté en CSV')
+      } else if (format === 'excel') {
+        // For now, export as CSV with .xlsx extension (basic Excel format)
+        content = generateCSVContent()
+        filename += '.xlsx'
+        
+        const blob = new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = filename
+        link.click()
+        
+        showToast('success', 'Export Excel', 'Rapport exporté en Excel')
+      } else if (format === 'pdf') {
+        // For PDF, we'll create a simple HTML report and print it
+        const htmlContent = generateHTMLReport()
+        const printWindow = window.open('', '_blank')
+        if (printWindow) {
+          printWindow.document.write(htmlContent)
+          printWindow.document.close()
+          printWindow.print()
+          showToast('success', 'Export PDF', 'Rapport prêt pour impression PDF')
+        } else {
+          showToast('error', 'Erreur', 'Impossible d\'ouvrir la fenêtre d\'impression')
+        }
+      }
+    } catch (error) {
+      console.error('Export error:', error)
+      showToast('error', 'Erreur', 'Erreur lors de l\'export')
+    }
+  }
+
+  const generateCSVContent = () => {
+    if (!generatedReport) return ''
+    
+    let csv = 'Date,Donnée,Valeur\n'
+    
+    if (type === 'sales' && generatedReport.data.salesData) {
+      generatedReport.data.salesData.forEach((item: any) => {
+        csv += `${item.date},Ventes,${item.revenue}\n`
+        csv += `${item.date},Nombre de ventes,${item.salesCount}\n`
+      })
+    }
+    
+    return csv
+  }
+
+  const generateHTMLReport = () => {
+    if (!generatedReport) return ''
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Rapport ${getTitle()}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+          .summary-item { border: 1px solid #ddd; padding: 15px; text-align: center; }
+          .summary-value { font-size: 24px; font-weight: bold; color: #2563eb; }
+          .summary-label { color: #666; margin-top: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f3f4f6; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${getTitle()}</h1>
+          <p>Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+        </div>
+        
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-value">${formatCurrency(generatedReport.data.summary?.totalRevenue || 0)}</div>
+            <div class="summary-label">Chiffre d'affaires</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-value">${generatedReport.data.summary?.totalSales || 0}</div>
+            <div class="summary-label">Nombre de ventes</div>
+          </div>
+        </div>
+        
+        <h2>Détails</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Ventes</th>
+              <th>Revenus</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${type === 'sales' && generatedReport.data.salesData ? 
+              generatedReport.data.salesData.map((item: any) => `
+                <tr>
+                  <td>${new Date(item.date).toLocaleDateString('fr-FR')}</td>
+                  <td>${item.salesCount}</td>
+                  <td>${formatCurrency(item.revenue)}</td>
+                </tr>
+              `).join('') : ''
+            }
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
   }
 
   const printReport = () => {
-    showToast('success', 'Impression', 'Rapport envoyé à l\'imprimante')
+    if (!generatedReport) {
+      showToast('error', 'Erreur', 'Aucun rapport généré à imprimer')
+      return
+    }
+
+    try {
+      const htmlContent = generateHTMLReport()
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(htmlContent)
+        printWindow.document.close()
+        printWindow.focus()
+        printWindow.print()
+        showToast('success', 'Impression', 'Rapport envoyé à l\'imprimante')
+      } else {
+        showToast('error', 'Erreur', 'Impossible d\'ouvrir la fenêtre d\'impression')
+      }
+    } catch (error) {
+      console.error('Print error:', error)
+      showToast('error', 'Erreur', 'Erreur lors de l\'impression')
+    }
   }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
     if (typeof window !== 'undefined' && (window as any).showToast) {
       (window as any).showToast({ type, title, message })
     }
+  }
+
+  // Format currency for display
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'XOF',
+      minimumFractionDigits: 0
+    }).format(amount)
   }
 
   if (!isOpen) return null
@@ -194,28 +491,18 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                     <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
                     <select
                       value={selectedFilters.category || ''}
-                      onChange={(e) => setSelectedFilters(prev => ({ ...prev, category: e.target.value }))}
+                      onChange={(e) => setSelectedFilters((prev: any) => ({ 
+                        ...prev, 
+                        category: e.target.value 
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Toutes les catégories</option>
-                      <option value="alimentation">Alimentation</option>
-                      <option value="boissons">Boissons</option>
-                      <option value="hygiene">Hygiène</option>
-                      <option value="maison">Maison</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Caissier</label>
-                    <select
-                      value={selectedFilters.cashier || ''}
-                      onChange={(e) => setSelectedFilters(prev => ({ ...prev, cashier: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Tous les caissiers</option>
-                      <option value="marie">Marie</option>
-                      <option value="jean">Jean</option>
-                      <option value="sophie">Sophie</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -223,13 +510,13 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                     <label className="block text-sm font-medium text-gray-700 mb-1">Méthode de paiement</label>
                     <select
                       value={selectedFilters.paymentMethod || ''}
-                      onChange={(e) => setSelectedFilters(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                      onChange={(e) => setSelectedFilters((prev: any) => ({ ...prev, paymentMethod: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Toutes les méthodes</option>
                       <option value="cash">Espèces</option>
                       <option value="card">Carte bancaire</option>
-                      <option value="check">Chèque</option>
+                      <option value="mobile">Mobile Money</option>
                     </select>
                   </div>
                 </div>
@@ -285,129 +572,289 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
 
             {/* Main content - Charts and data */}
             <div className="lg:col-span-3 space-y-6">
-              {generatedReport ? (
+              {isLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Chargement des données...</p>
+                </div>
+              ) : generatedReport ? (
                 <>
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-blue-600">Total Ventes</p>
-                          <p className="text-2xl font-bold text-blue-900">€{generatedReport.data.summary.totalSales.toLocaleString()}</p>
+                    {type === 'sales' && (
+                      <>
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-blue-600">Total Ventes</p>
+                              <p className="text-2xl font-bold text-blue-900">
+                                {formatCurrency(generatedReport.data.summary.totalRevenue)}
+                              </p>
+                            </div>
+                            <TrendingUp className="w-8 h-8 text-blue-600" />
+                          </div>
                         </div>
-                        <TrendingUp className="w-8 h-8 text-blue-600" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-green-600">Transactions</p>
-                          <p className="text-2xl font-bold text-green-900">{generatedReport.data.summary.totalTransactions}</p>
+                        
+                        <div className="bg-green-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-green-600">Transactions</p>
+                              <p className="text-2xl font-bold text-green-900">
+                                {generatedReport.data.summary.totalSales}
+                              </p>
+                            </div>
+                            <BarChart3 className="w-8 h-8 text-green-600" />
+                          </div>
                         </div>
-                        <BarChart3 className="w-8 h-8 text-green-600" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-purple-600">Ticket Moyen</p>
-                          <p className="text-2xl font-bold text-purple-900">€{generatedReport.data.summary.averageTicket}</p>
+                        
+                        <div className="bg-purple-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-purple-600">Ticket Moyen</p>
+                              <p className="text-2xl font-bold text-purple-900">
+                                {formatCurrency(generatedReport.data.summary.averageTicket)}
+                              </p>
+                            </div>
+                            <DollarSign className="w-8 h-8 text-purple-600" />
+                          </div>
                         </div>
-                        <DollarSign className="w-8 h-8 text-purple-600" />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-orange-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-orange-600">Croissance</p>
-                          <p className="text-2xl font-bold text-orange-900">+{generatedReport.data.summary.growthRate}%</p>
+                        
+                        <div className="bg-orange-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-orange-600">Remises</p>
+                              <p className="text-2xl font-bold text-orange-900">
+                                {formatCurrency(generatedReport.data.summary.totalDiscount)}
+                              </p>
+                            </div>
+                            <TrendingDown className="w-8 h-8 text-orange-600" />
+                          </div>
                         </div>
-                        <TrendingUp className="w-8 h-8 text-orange-600" />
-                      </div>
-                    </div>
+                      </>
+                    )}
+
+                    {type === 'inventory' && (
+                      <>
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-blue-600">Produits</p>
+                              <p className="text-2xl font-bold text-blue-900">
+                                {generatedReport.data.summary.totalProducts}
+                              </p>
+                            </div>
+                            <Package className="w-8 h-8 text-blue-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-green-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-green-600">Valeur Stock</p>
+                              <p className="text-2xl font-bold text-green-900">
+                                {formatCurrency(generatedReport.data.summary.totalValue)}
+                              </p>
+                            </div>
+                            <DollarSign className="w-8 h-8 text-green-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-orange-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-orange-600">Stock Faible</p>
+                              <p className="text-2xl font-bold text-orange-900">
+                                {generatedReport.data.summary.lowStockProducts}
+                              </p>
+                            </div>
+                            <TrendingDown className="w-8 h-8 text-orange-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-red-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-red-600">Rupture</p>
+                              <p className="text-2xl font-bold text-red-900">
+                                {generatedReport.data.summary.outOfStockProducts}
+                              </p>
+                            </div>
+                            <X className="w-8 h-8 text-red-600" />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {type === 'customers' && (
+                      <>
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-blue-600">Clients</p>
+                              <p className="text-2xl font-bold text-blue-900">
+                                {generatedReport.data.summary.totalCustomers}
+                              </p>
+                            </div>
+                            <Users className="w-8 h-8 text-blue-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-green-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-green-600">Revenus</p>
+                              <p className="text-2xl font-bold text-green-900">
+                                {formatCurrency(generatedReport.data.summary.totalRevenue)}
+                              </p>
+                            </div>
+                            <DollarSign className="w-8 h-8 text-green-600" />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-purple-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-purple-600">Ticket Moyen</p>
+                              <p className="text-2xl font-bold text-purple-900">
+                                {formatCurrency(generatedReport.data.summary.averageOrderValue)}
+                              </p>
+                            </div>
+                            <BarChart3 className="w-8 h-8 text-purple-600" />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Charts */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Sales Trend */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des ventes</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <RechartsLineChart data={salesData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="sales" stroke="#3B82F6" strokeWidth={2} />
-                        </RechartsLineChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {type === 'sales' && generatedReport.data.salesData && generatedReport.data.salesData.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des ventes</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RechartsLineChart data={generatedReport.data.salesData.map((item: any) => ({
+                            date: new Date(item.date).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' }),
+                            revenue: item.revenue,
+                            sales: item.salesCount
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => [formatCurrency(value), 'Montant']} />
+                            <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
+                          </RechartsLineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
 
-                    {/* Product Performance */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance des produits</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={productPerformance}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="revenue" fill="#10B981" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {/* Payment Methods */}
+                    {type === 'sales' && generatedReport.data.paymentMethods && generatedReport.data.paymentMethods.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Méthodes de paiement</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RechartsPieChart>
+                            <Pie
+                              data={generatedReport.data.paymentMethods.map((item: any) => ({
+                                name: item.method,
+                                value: item.amount
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {generatedReport.data.paymentMethods.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 4]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: any) => [formatCurrency(value), 'Montant']} />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
 
                     {/* Customer Segments */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Segments clients</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <RechartsPieChart>
-                          <Pie
-                            data={customerSegments}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {customerSegments.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {type === 'customers' && generatedReport.data.segmentBreakdown && generatedReport.data.segmentBreakdown.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Segments clients</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RechartsPieChart>
+                            <Pie
+                              data={generatedReport.data.segmentBreakdown.map((item: any) => ({
+                                name: item.name,
+                                value: item.totalSpent
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {generatedReport.data.segmentBreakdown.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 4]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: any) => [formatCurrency(value), 'Revenus']} />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
 
                     {/* Detailed Table */}
                     <div className="bg-white rounded-lg shadow p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Détail des produits</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails</h3>
                       <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2">Produit</th>
-                              <th className="text-right py-2">Ventes</th>
-                              <th className="text-right py-2">Revenus</th>
-                              <th className="text-right py-2">Marge</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {productPerformance.map((product, index) => (
-                              <tr key={index} className="border-b border-gray-100">
-                                <td className="py-2">{product.name}</td>
-                                <td className="text-right py-2">{product.sales}</td>
-                                <td className="text-right py-2">€{product.revenue}</td>
-                                <td className="text-right py-2">{(product.margin * 100).toFixed(1)}%</td>
+                        {type === 'sales' && generatedReport.data.salesData && (
+                          <table className="min-w-full">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-left py-2">Date</th>
+                                <th className="text-right py-2">Ventes</th>
+                                <th className="text-right py-2">Revenus</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {generatedReport.data.salesData.slice(0, 10).map((item: any, index: number) => (
+                                <tr key={index} className="border-b border-gray-100">
+                                  <td className="py-2">
+                                    {new Date(item.date).toLocaleDateString('fr-FR')}
+                                  </td>
+                                  <td className="text-right py-2">{item.salesCount}</td>
+                                  <td className="text-right py-2">{formatCurrency(item.revenue)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+
+                        {type === 'customers' && generatedReport.data.customersData && (
+                          <table className="min-w-full">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="text-left py-2">Client</th>
+                                <th className="text-right py-2">Commandes</th>
+                                <th className="text-right py-2">Total dépensé</th>
+                                <th className="text-right py-2">Segment</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {generatedReport.data.customersData.slice(0, 10).map((item: any, index: number) => (
+                                <tr key={index} className="border-b border-gray-100">
+                                  <td className="py-2">{item.customer.name}</td>
+                                  <td className="text-right py-2">{item.spending.orderCount}</td>
+                                  <td className="text-right py-2">{formatCurrency(item.spending.totalSpent)}</td>
+                                  <td className="text-right py-2">{item.segment}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     </div>
                   </div>

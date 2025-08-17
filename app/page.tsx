@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -38,6 +38,7 @@ export default function Home() {
   // New states for cash register
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false)
   const [cashRegisterType, setCashRegisterType] = useState<'open' | 'close' | 'count'>('open')
+  const [currentCashSession, setCurrentCashSession] = useState<any>(null)
 
   // New states for all modals
   const [showInventoryModal, setShowInventoryModal] = useState(false)
@@ -45,6 +46,21 @@ export default function Home() {
 
   const [showAdvancedReportsModal, setShowAdvancedReportsModal] = useState(false)
   const [reportType, setReportType] = useState<'sales' | 'inventory' | 'customers' | 'financial' | 'custom'>('sales')
+
+  // Check cash register status on component mount and when needed
+  useEffect(() => {
+    checkCashRegisterStatus()
+  }, [])
+
+  const checkCashRegisterStatus = async () => {
+    try {
+      const response = await fetch('/api/cash')
+      const data = await response.json()
+      setCurrentCashSession(data.currentSession)
+    } catch (error) {
+      console.error('Error checking cash register status:', error)
+    }
+  }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
     if (typeof window !== 'undefined' && (window as any).showToast) {
@@ -105,7 +121,14 @@ export default function Home() {
     setShowCashRegisterModal(true)
   }
 
-
+  // Handle cash register modal close to refresh status
+  const handleCashRegisterModalClose = () => {
+    setShowCashRegisterModal(false)
+    // Refresh cash register status after modal closes
+    setTimeout(() => {
+      checkCashRegisterStatus()
+    }, 500)
+  }
 
   const handleInventoryAdjustment = () => {
     setInventoryType('adjustment')
@@ -126,8 +149,6 @@ export default function Home() {
     setInventoryType('count')
     setShowInventoryModal(true)
   }
-
-
 
   const handleAdvancedReports = () => {
     setReportType('sales')
@@ -210,20 +231,36 @@ export default function Home() {
                 {/* Cash Register */}
                 <button
                   onClick={handleOpenCashRegister}
-                  className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
-                  title="Ouvrir la caisse"
+                  disabled={currentCashSession && currentCashSession.status === 'open'}
+                  className={`p-2 rounded-md transition-colors group relative ${
+                    currentCashSession && currentCashSession.status === 'open'
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                  }`}
+                  title={currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
                 >
                   <DollarSign className="w-5 h-5" />
+                  {/* Tooltip */}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
+                  </div>
                 </button>
                 <button
                   onClick={handleCountCash}
-                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                  title="Compter la caisse"
+                  disabled={!currentCashSession || currentCashSession.status !== 'open'}
+                  className={`p-2 rounded-md transition-colors group relative ${
+                    !currentCashSession || currentCashSession.status !== 'open'
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                  }`}
+                  title={!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
                 >
                   <Calculator className="w-5 h-5" />
+                  {/* Tooltip */}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
+                  </div>
                 </button>
-
-
 
                 {/* Inventory Management */}
                 <button
@@ -292,11 +329,9 @@ export default function Home() {
 
       <CashRegisterModal
         isOpen={showCashRegisterModal}
-        onClose={() => setShowCashRegisterModal(false)}
+        onClose={handleCashRegisterModalClose}
         type={cashRegisterType}
       />
-
-
 
       <InventoryModal
         isOpen={showInventoryModal}
@@ -306,8 +341,6 @@ export default function Home() {
         }}
         type={inventoryType}
       />
-
-
 
       <AdvancedReportsModal
         isOpen={showAdvancedReportsModal}

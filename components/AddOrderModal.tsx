@@ -128,7 +128,7 @@ export default function AddOrderModal({ isOpen, onClose, onOrderAdded }: {
       date: new Date().toISOString().split('T')[0],
       total: getTotalAmount(),
       status: 'En attente',
-      items: formData.items.length,
+      itemCount: formData.items.length,
       paymentStatus: 'En attente',
       notes: formData.notes,
       items: formData.items

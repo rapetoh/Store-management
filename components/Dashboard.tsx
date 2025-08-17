@@ -74,8 +74,8 @@ export default function Dashboard() {
     }
   }
 
-  const handleAddProduct = (newProduct: any) => {
-    showToast('success', 'Produit ajouté', `Le produit "${newProduct.name}" a été ajouté avec succès !`)
+  const handleAddProduct = () => {
+    showToast('success', 'Produit ajouté', 'Le produit a été ajouté avec succès !')
   }
 
   const handleSaleCompleted = (sale: any) => {
@@ -232,7 +232,6 @@ export default function Dashboard() {
       <QuickSaleModal
         isOpen={showQuickSaleModal}
         onClose={() => setShowQuickSaleModal(false)}
-        onSaleCompleted={handleSaleCompleted}
       />
     </div>
   )

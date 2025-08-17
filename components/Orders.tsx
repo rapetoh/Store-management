@@ -33,7 +33,7 @@ interface Sale {
   time: string
   total: number
   status: string
-  items: number
+  itemCount: number
   paymentMethod: string
   cashier: string
   notes?: string
@@ -204,9 +204,9 @@ export default function Sales() {
         // Fallback to basic info if detailed fetch fails
         setInfoModalData({
           title: 'Détails de la vente',
-          message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+          message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.itemCount} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
           type: 'info',
-          icon: 'cart'
+          icon: 'info'
         })
         setShowInfoModal(true)
       }
@@ -215,9 +215,9 @@ export default function Sales() {
       // Fallback to basic info
       setInfoModalData({
         title: 'Détails de la vente',
-        message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.items} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
+        message: `ID: ${sale.id}\nClient: ${sale.customer}\nDate: ${sale.date} à ${sale.time}\nArticles: ${sale.itemCount} items\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA\nStatut: ${sale.status}\nMéthode de paiement: ${sale.paymentMethod}\nCaissier: ${sale.cashier}${sale.notes ? `\n\nNotes: ${sale.notes}` : ''}`,
         type: 'info',
-        icon: 'cart'
+        icon: 'info'
       })
       setShowInfoModal(true)
     }
@@ -247,7 +247,7 @@ export default function Sales() {
   const handleExport = () => {
     const csvContent = [
       ['ID', 'Client', 'Date', 'Heure', 'Total', 'Statut', 'Articles', 'Méthode de paiement', 'Caissier'],
-      ...sales.map(s => [s.id, s.customer, s.date, s.time, s.total.toString(), s.status, s.items.toString(), s.paymentMethod, s.cashier])
+      ...sales.map(s => [s.id, s.customer, s.date, s.time, s.total.toString(), s.status, s.itemCount.toString(), s.paymentMethod, s.cashier])
     ].map(row => row.join(',')).join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -268,7 +268,7 @@ export default function Sales() {
       title: 'Import de ventes',
       message: 'Fonctionnalité d\'import\n\nSélectionnez un fichier CSV pour importer des ventes.\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
       type: 'info',
-      icon: 'cart'
+      icon: 'info'
     })
     setShowInfoModal(true)
   }
@@ -407,7 +407,7 @@ export default function Sales() {
                 <tr key={sale.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{sale.id}</div>
-                    <div className="text-sm text-gray-500">{sale.items} articles</div>
+                    <div className="text-sm text-gray-500">{sale.itemCount} articles</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{sale.customer}</div>
@@ -521,7 +521,6 @@ export default function Sales() {
       <QuickSaleModal
         isOpen={showQuickSaleModal}
         onClose={() => setShowQuickSaleModal(false)}
-        onSaleCompleted={handleSaleCompleted}
       />
 
       <EditSaleModal

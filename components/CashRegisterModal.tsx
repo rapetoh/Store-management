@@ -54,6 +54,8 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
       const response = await fetch('/api/cash')
       const data = await response.json()
       
+      console.log('Cash session data:', data) // Debug log
+      
       if (data.success) {
         setCurrentSession(data.currentSession)
         setSessionHistory(data.history)
@@ -66,6 +68,11 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
   const handleOpenShift = async () => {
     if (shiftData.initialAmount <= 0) {
       showToast('error', 'Erreur', 'Le montant initial doit être supérieur à 0')
+      return
+    }
+
+    if (!shiftData.cashierName.trim()) {
+      showToast('error', 'Erreur', 'Le nom du caissier est requis')
       return
     }
 
@@ -243,30 +250,30 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
               type === 'open' ? 'bg-green-500' : 
               type === 'close' ? 'bg-red-500' : 'bg-blue-500'
             }`}>
               {getIcon()}
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{getTitle()}</h2>
-              <p className="text-sm text-gray-600">{getDescription()}</p>
+              <h2 className="text-lg font-semibold text-gray-900">{getTitle()}</h2>
+              <p className="text-xs text-gray-600">{getDescription()}</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 overflow-y-auto flex-1">
           {type === 'open' && (
             <div className="space-y-4">
               <div>
@@ -277,25 +284,60 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                   <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="number"
-                    step="0.01"
+                    step="100"
+                    min="0"
                     value={shiftData.initialAmount}
                     onChange={(e) => setShiftData(prev => ({ ...prev, initialAmount: parseFloat(e.target.value) || 0 }))}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
+                    placeholder="0"
                   />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Montant en FCFA pour commencer votre shift
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShiftData(prev => ({ ...prev, initialAmount: 5000 }))}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    5 000 FCFA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShiftData(prev => ({ ...prev, initialAmount: 10000 }))}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    10 000 FCFA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShiftData(prev => ({ ...prev, initialAmount: 20000 }))}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    20 000 FCFA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShiftData(prev => ({ ...prev, initialAmount: 50000 }))}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    50 000 FCFA
+                  </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Caissier
+                  Caissier *
                 </label>
                 <input
                   type="text"
                   value={shiftData.cashierName}
                   onChange={(e) => setShiftData(prev => ({ ...prev, cashierName: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nom du caissier"
+                  placeholder="Votre nom"
+                  required
                 />
               </div>
 
@@ -366,13 +408,17 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                   <Calculator className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="number"
-                    step="0.01"
+                    step="100"
+                    min="0"
                     value={countedAmount}
                     onChange={(e) => setCountedAmount(parseFloat(e.target.value) || 0)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
+                    placeholder="0"
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Comptez soigneusement l'argent en caisse
+                </p>
               </div>
 
               {countedAmount > 0 && currentSession && (
@@ -403,48 +449,48 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
           )}
 
           {type === 'count' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {currentSession ? (
                 <>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Session en cours</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Session en cours</h3>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
-                        <p className="text-sm text-gray-600">Montant initial</p>
+                        <p className="text-gray-600">Montant initial</p>
                         <p className="font-medium">{currentSession.openingAmount.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Ventes</p>
+                        <p className="text-gray-600">Ventes</p>
                         <p className="font-medium">{currentSession.totalSales.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Montant attendu</p>
+                        <p className="text-gray-600">Montant attendu</p>
                         <p className="font-medium">{(currentSession.openingAmount + currentSession.totalSales).toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Caissier</p>
+                        <p className="text-gray-600">Caissier</p>
                         <p className="font-medium">{currentSession.cashierName || 'Non spécifié'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                      <span className="text-sm font-medium text-yellow-900">Comptage de caisse</span>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <AlertTriangle className="w-3 h-3 text-yellow-600" />
+                      <span className="text-xs font-medium text-yellow-900">Comptage de caisse</span>
                     </div>
-                    <p className="text-sm text-yellow-700">
+                    <p className="text-xs text-yellow-700">
                       Comptez soigneusement l'argent en caisse et saisissez le montant total.
                     </p>
                   </div>
                 </>
               ) : (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <div className="flex items-center space-x-2">
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-900">Aucune session ouverte</span>
+                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                    <span className="text-xs font-medium text-red-900">Aucune session ouverte</span>
                   </div>
-                  <p className="text-sm text-red-700 mt-1">
+                  <p className="text-xs text-red-700 mt-1">
                     Aucune session de caisse n'est actuellement ouverte.
                   </p>
                 </div>
@@ -467,31 +513,31 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Détail du comptage</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Détail du comptage</h3>
+                <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <p className="text-gray-600">Billets de 50€</p>
+                    <p className="text-gray-600">50€</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Billets de 20€</p>
+                    <p className="text-gray-600">20€</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Billets de 10€</p>
+                    <p className="text-gray-600">10€</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Billets de 5€</p>
+                    <p className="text-gray-600">5€</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Pièces de 2€</p>
+                    <p className="text-gray-600">2€</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Pièces de 1€</p>
+                    <p className="text-gray-600">1€</p>
                     <p className="font-medium">0</p>
                   </div>
                 </div>
@@ -500,7 +546,7 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 flex-shrink-0">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
@@ -508,28 +554,10 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
               Annuler
             </button>
             
-            {type === 'count' && (
-              <button
-                onClick={handleCountCash}
-                disabled={isProcessing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Comptage...</span>
-                  </>
-                ) : (
-                  <>
-                    <Calculator className="w-4 h-4" />
-                    <span>Compter</span>
-                  </>
-                )}
-              </button>
-            )}
+
 
             <button
-              onClick={type === 'open' ? handleOpenShift : handleCloseShift}
+              onClick={type === 'open' ? handleOpenShift : type === 'count' ? handleCountCash : handleCloseShift}
               disabled={isProcessing || 
                 (type === 'open' && shiftData.initialAmount <= 0) || 
                 (type === 'close' && (countedAmount <= 0 || !currentSession)) ||

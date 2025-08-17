@@ -3,7 +3,7 @@ import DatabaseService from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const name = searchParams.get('name')
     
     if (name) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
     
     const categories = await DatabaseService.getAllCategories()
-    return NextResponse.json(categories)
+    return NextResponse.json({ categories })
   } catch (error) {
     console.error('Error fetching categories:', error)
     return NextResponse.json(

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DollarSign, Calendar, Clock, User, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react'
+import { DollarSign, Calendar, Clock, User, TrendingUp, AlertTriangle, RefreshCw, Edit } from 'lucide-react'
 import CashRegisterModal from './CashRegisterModal'
+import EditSessionModal from './EditSessionModal'
 
 interface CashSession {
   id: string
@@ -27,6 +28,8 @@ export default function Cash() {
   const [isLoading, setIsLoading] = useState(true)
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false)
   const [cashRegisterType, setCashRegisterType] = useState<'open' | 'close' | 'count'>('open')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedSession, setSelectedSession] = useState<CashSession | null>(null)
 
   useEffect(() => {
     loadCashSessions()
@@ -106,6 +109,46 @@ export default function Cash() {
     loadCashSessions()
   }
 
+  const handleEditSession = (session: CashSession) => {
+    setSelectedSession(session)
+    setShowEditModal(true)
+  }
+
+  const handleSaveSession = async (updatedSession: CashSession) => {
+    try {
+      const response = await fetch(`/api/cash/sessions/${updatedSession.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSession),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        await loadCashSessions()
+        setShowEditModal(false)
+        setSelectedSession(null)
+        if (typeof window !== 'undefined' && (window as any).showToast) {
+          (window as any).showToast({ 
+            type: 'success', 
+            title: 'Session mise à jour', 
+            message: 'La session a été modifiée avec succès' 
+          })
+        }
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error updating session:', error)
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast({ 
+          type: 'error', 
+          title: 'Erreur', 
+          message: 'Impossible de modifier la session' 
+        })
+      }
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-green-100 text-green-800'
@@ -134,28 +177,32 @@ export default function Cash() {
         <div className="flex space-x-3">
           <button
             onClick={handleOpenCashRegister}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+            disabled={!!currentSession}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <DollarSign className="w-4 h-4" />
             <span>Ouvrir la caisse</span>
           </button>
           <button
             onClick={handleCountCash}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            disabled={!currentSession}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <TrendingUp className="w-4 h-4" />
             <span>Compter la caisse</span>
           </button>
           <button
             onClick={handleRecalculateTotals}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors flex items-center space-x-2"
+            disabled={!currentSession}
+            className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Recalculer</span>
           </button>
           <button
             onClick={handleCloseCashRegister}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2"
+            disabled={!currentSession}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <AlertTriangle className="w-4 h-4" />
             <span>Fermer la caisse</span>
@@ -194,11 +241,11 @@ export default function Cash() {
                   'Non compté'
                 }
               </div>
-              {currentSession.actualAmount && currentSession.difference && (
-                <div className={`text-sm mt-1 ${currentSession.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {currentSession.difference >= 0 ? '+' : ''}{currentSession.difference.toLocaleString('fr-FR')} FCFA
+                             {currentSession.actualAmount && currentSession.difference && (
+                                 <div className={`text-sm mt-1 ${currentSession.difference === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {currentSession.difference === 0 ? '' : currentSession.difference > 0 ? '-' : '+'}{Math.abs(currentSession.difference).toLocaleString('fr-FR')} FCFA
                 </div>
-              )}
+               )}
             </div>
           </div>
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
@@ -227,18 +274,19 @@ export default function Cash() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Compté</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Différence</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     Chargement des sessions...
                   </td>
                 </tr>
               ) : sessions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     Aucune session de caisse trouvée
                   </td>
                 </tr>
@@ -268,19 +316,28 @@ export default function Cash() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {session.actualAmount ? `${session.actualAmount.toLocaleString('fr-FR')} FCFA` : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {session.difference ? (
-                        <span className={session.difference >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {session.difference >= 0 ? '+' : ''}{session.difference.toLocaleString('fr-FR')} FCFA
+                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       {session.difference ? (
+                                                 <span className={session.difference === 0 ? 'text-green-600' : 'text-red-600'}>
+                          {session.difference === 0 ? '' : session.difference > 0 ? '-' : '+'}{Math.abs(session.difference).toLocaleString('fr-FR')} FCFA
                         </span>
-                      ) : (
-                        'N/A'
-                      )}
-                    </td>
+                       ) : (
+                         'N/A'
+                       )}
+                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(session.status)}`}>
                         {getStatusText(session.status)}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleEditSession(session)}
+                        className="text-blue-600 hover:text-blue-900 transition-colors"
+                        title="Modifier la session"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -294,8 +351,19 @@ export default function Cash() {
         isOpen={showCashRegisterModal}
         onClose={() => setShowCashRegisterModal(false)}
         type={cashRegisterType}
-        onComplete={handleCashRegisterComplete}
       />
+
+      {selectedSession && (
+        <EditSessionModal
+          isOpen={showEditModal}
+          session={selectedSession}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedSession(null)
+          }}
+          onSave={handleSaveSession}
+        />
+      )}
     </div>
   )
 } 

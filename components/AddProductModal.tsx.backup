@@ -1,23 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save, Package, Tag, Hash, DollarSign, AlertTriangle } from 'lucide-react'
-
-interface Product {
-  id: string
-  name: string
-  description?: string
-  price: number
-  costPrice: number
-  stock: number
-  minStock: number
-  barcode?: string
-  sku?: string
-  categoryId?: string
-  taxRateId?: string
-  image?: string
-  isActive: boolean
-}
+import { X, Save, Package, Tag, Hash, DollarSign, AlertTriangle, Barcode, Plus } from 'lucide-react'
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 
 interface Category {
   id: string
@@ -32,17 +17,19 @@ interface TaxRate {
   isDefault: boolean
 }
 
-interface EditProductModalProps {
+interface AddProductModalProps {
   isOpen: boolean
   onClose: () => void
-  onProductUpdated: () => void
-  product: Product | null
+  onProductAdded: () => void
 }
 
-export default function EditProductModal({ isOpen, onClose, onProductUpdated, product }: EditProductModalProps) {
+export default function AddProductModal({ isOpen, onClose, onProductAdded }: AddProductModalProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [taxRates, setTaxRates] = useState<TaxRate[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -54,8 +41,19 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
     sku: '',
     categoryId: '',
     taxRateId: '',
-    image: '',
-    isActive: true
+    image: ''
+  })
+
+  // Barcode scanner hook
+  const { barcodeBuffer, isScanning, clearBuffer } = useBarcodeScanner({
+    onBarcodeDetected: (barcode) => {
+      console.log('Barcode detected in AddProductModal:', barcode)
+      setFormData(prev => ({ ...prev, barcode }))
+      showToast('success', 'Code-barres détecté', `Code-barres ${barcode} ajouté`)
+    },
+    minLength: 8,
+    maxLength: 20,
+    timeout: 150
   })
 
   useEffect(() => {
@@ -64,25 +62,6 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
       loadTaxRates()
     }
   }, [isOpen])
-
-  useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name,
-        description: product.description || '',
-        price: product.price.toString(),
-        costPrice: product.costPrice.toString(),
-        stock: product.stock.toString(),
-        minStock: product.minStock.toString(),
-        barcode: product.barcode || '',
-        sku: product.sku || '',
-        categoryId: product.categoryId || '',
-        taxRateId: product.taxRateId || '',
-        image: product.image || '',
-        isActive: product.isActive
-      })
-    }
-  }, [product])
 
   const loadCategories = async () => {
     try {
@@ -102,6 +81,11 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
       if (response.ok) {
         const data = await response.json()
         setTaxRates(data)
+        // Set default tax rate if available
+        const defaultRate = data.find((rate: TaxRate) => rate.isDefault)
+        if (defaultRate) {
+          setFormData(prev => ({ ...prev, taxRateId: defaultRate.id }))
+        }
       }
     } catch (error) {
       console.error('Error loading tax rates:', error)
@@ -111,7 +95,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!product || !formData.name || !formData.price || !formData.costPrice || !formData.categoryId) {
+    if (!formData.name || !formData.price || !formData.costPrice || !formData.categoryId) {
       showToast('error', 'Champs requis', 'Le nom, le prix de vente, le prix d\'achat et la catégorie sont obligatoires')
       return
     }
@@ -119,8 +103,8 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: 'PUT',
+      const response = await fetch('/api/products', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -133,27 +117,43 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
           minStock: parseInt(formData.minStock) || 0,
           barcode: formData.barcode || undefined,
           sku: formData.sku || undefined,
-          categoryId: formData.categoryId || undefined,
+          categoryId: formData.categoryId,
           taxRateId: formData.taxRateId || undefined,
-          image: formData.image || undefined,
-          isActive: formData.isActive
+          image: formData.image || undefined
         }),
       })
 
       if (response.ok) {
-        showToast('success', 'Produit mis à jour', 'Le produit a été mis à jour avec succès')
-        onProductUpdated()
+        showToast('success', 'Produit ajouté', 'Le produit a été ajouté avec succès')
+        resetForm()
+        onProductAdded()
         onClose()
       } else {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to update product')
+        throw new Error(error.error || 'Failed to add product')
       }
     } catch (error) {
-      console.error('Error updating product:', error)
-      showToast('error', 'Erreur', 'Impossible de mettre à jour le produit')
+      console.error('Error adding product:', error)
+      showToast('error', 'Erreur', 'Impossible d\'ajouter le produit')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      costPrice: '',
+      stock: '',
+      minStock: '',
+      barcode: '',
+      sku: '',
+      categoryId: '',
+      taxRateId: '',
+      image: ''
+    })
   }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
@@ -162,7 +162,45 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
     }
   }
 
-  if (!isOpen || !product) return null
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      showToast('error', 'Nom requis', 'Le nom de la catégorie est obligatoire')
+      return
+    }
+
+    setIsAddingCategory(true)
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          description: ''
+        }),
+      })
+
+      if (response.ok) {
+        const newCategory = await response.json()
+        setCategories(prev => [...prev, newCategory])
+        setFormData(prev => ({ ...prev, categoryId: newCategory.id }))
+        setNewCategoryName('')
+        setShowAddCategoryModal(false)
+        showToast('success', 'Catégorie ajoutée', 'La catégorie a été ajoutée avec succès')
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to add category')
+      }
+    } catch (error) {
+      console.error('Error adding category:', error)
+      showToast('error', 'Erreur', 'Impossible d\'ajouter la catégorie')
+    } finally {
+      setIsAddingCategory(false)
+    }
+  }
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -174,8 +212,8 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
               <Package className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Modifier le produit</h2>
-              <p className="text-sm text-gray-600">Modifier les informations du produit</p>
+              <h2 className="text-xl font-semibold text-gray-900">Ajouter un produit</h2>
+              <p className="text-sm text-gray-600">Créer un nouveau produit</p>
             </div>
           </div>
           <button
@@ -259,7 +297,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock actuel
+                  Stock initial
                 </label>
                 <input
                   type="number"
@@ -294,19 +332,29 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Catégorie *
                 </label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Sélectionner une catégorie</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex space-x-2">
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Sélectionner une catégorie</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategoryModal(true)}
+                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm">Ajouter</span>
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -337,28 +385,46 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Code-barres
+                  <div className="flex items-center space-x-2">
+                    <span>Code-barres</span>
+                    <span className="text-gray-500 text-xs">(idéalement scanné)</span>
+                    {isScanning && (
+                      <div className="flex items-center space-x-1">
+                        <Barcode className="w-3 h-3 text-green-600" />
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-green-600">Scanning...</span>
+                      </div>
+                    )}
+                  </div>
                 </label>
                 <input
                   type="text"
                   value={formData.barcode}
                   onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Code-barres"
+                  placeholder="Scannez ou saisissez le code-barres"
                 />
+                {barcodeBuffer && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Code en cours: {barcodeBuffer}
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  SKU
+                  SKU <span className="text-gray-500 text-xs">(optionnel - auto-généré)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.sku}
                   onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="SKU"
+                  placeholder="Laissez vide pour auto-génération"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: CATÉGORIE-001 (ex: ALIM-001, BOIS-001)
+                </p>
               </div>
             </div>
           </div>
@@ -381,26 +447,6 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
             </div>
           </div>
 
-          {/* Status */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Statut</h3>
-            
-            <div>
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Produit actif</span>
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Les produits inactifs ne sont pas visibles dans les ventes
-              </p>
-            </div>
-          </div>
-
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
             <button
@@ -418,18 +464,98 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Mise à jour...</span>
+                  <span>Ajout en cours...</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Mettre à jour</span>
+                  <span>Ajouter le produit</span>
                 </>
               )}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Add Category Modal */}
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                  <Tag className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Ajouter une catégorie</h3>
+                  <p className="text-sm text-gray-600">Créer une nouvelle catégorie</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddCategoryModal(false)
+                  setNewCategoryName('')
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nom de la catégorie *
+                </label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Ex: Électronique, Alimentation..."
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddCategory()
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategoryModal(false)
+                    setNewCategoryName('')
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  disabled={isAddingCategory || !newCategoryName.trim()}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {isAddingCategory ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Ajout...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Ajouter</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+} 
+} 

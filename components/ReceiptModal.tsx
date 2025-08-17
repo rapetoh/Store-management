@@ -55,6 +55,8 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
   }
 
   const generateQRData = () => {
+    if (!sale) return ''
+    
     const itemsText = sale.items && sale.items.length > 0 
       ? sale.items.map(item => `- ${item.productName}: ${item.quantity} x ${item.unitPrice.toLocaleString('fr-FR')} FCFA = ${item.totalPrice.toLocaleString('fr-FR')} FCFA`).join('\n')
       : 'Aucun article'

@@ -5,335 +5,410 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting database seeding...')
 
-  // Create categories
-  const categories = await Promise.all([
-    prisma.category.upsert({
-      where: { name: 'Alimentation' },
-      update: {},
-      create: { name: 'Alimentation', description: 'Produits alimentaires de base' },
+  // Clear existing data
+  await prisma.saleItem.deleteMany()
+  await prisma.sale.deleteMany()
+  await prisma.inventoryMovement.deleteMany()
+  await prisma.product.deleteMany()
+  await prisma.customer.deleteMany()
+  await prisma.category.deleteMany()
+  await prisma.promoCode.deleteMany()
+  await prisma.taxRate.deleteMany()
+
+  console.log('🗑️  Cleared existing data')
+
+  // Create tax rates for Togo
+  console.log('💰 Creating tax rates...')
+  const taxRates = await Promise.all([
+    prisma.taxRate.create({
+      data: {
+        name: 'TVA 18%',
+        rate: 18.0,
+        isDefault: true,
+        description: 'Taux de TVA standard au Togo'
+      }
     }),
-    prisma.category.upsert({
-      where: { name: 'Boulangerie' },
-      update: {},
-      create: { name: 'Boulangerie', description: 'Pain et viennoiseries' },
+    prisma.taxRate.create({
+      data: {
+        name: 'TVA 10%',
+        rate: 10.0,
+        isDefault: false,
+        description: 'Taux de TVA réduit'
+      }
     }),
-    prisma.category.upsert({
-      where: { name: 'Fruits' },
-      update: {},
-      create: { name: 'Fruits', description: 'Fruits frais' },
+    prisma.taxRate.create({
+      data: {
+        name: 'TVA 5%',
+        rate: 5.0,
+        isDefault: false,
+        description: 'Taux de TVA super réduit'
+      }
     }),
-    prisma.category.upsert({
-      where: { name: 'Boissons' },
-      update: {},
-      create: { name: 'Boissons', description: 'Boissons et jus' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Snacks' },
-      update: {},
-      create: { name: 'Snacks', description: 'Snacks et grignotages' },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Confiserie' },
-      update: {},
-      create: { name: 'Confiserie', description: 'Bonbons et chocolats' },
-    }),
+    prisma.taxRate.create({
+      data: {
+        name: 'Exonéré',
+        rate: 0.0,
+        isDefault: false,
+        description: 'Produits exonérés de TVA'
+      }
+    })
   ])
 
-  console.log('✅ Categories created')
+  console.log(`✅ Created ${taxRates.length} tax rates`)
 
-  // Create products
+  // Create categories
+  console.log('📂 Creating categories...')
+  const categories = await Promise.all([
+    prisma.category.create({
+      data: {
+        name: 'Boissons',
+        description: 'Boissons et rafraîchissements'
+      }
+    }),
+    prisma.category.create({
+      data: {
+        name: 'Alimentation',
+        description: 'Produits alimentaires'
+      }
+    }),
+    prisma.category.create({
+      data: {
+        name: 'Hygiène',
+        description: 'Produits d\'hygiène et de beauté'
+      }
+    }),
+    prisma.category.create({
+      data: {
+        name: 'Électronique',
+        description: 'Produits électroniques et accessoires'
+      }
+    })
+  ])
+
+  console.log(`✅ Created ${categories.length} categories`)
+
+  // Create products with tax rates
+  console.log('📦 Creating products...')
   const products = await Promise.all([
-    prisma.product.upsert({
-      where: { barcode: '3017620422003' },
-      update: {},
-      create: {
-        name: 'Lait 1L',
-        price: 786, // 1.20 EUR * 655 = 786 FCFA
-        costPrice: 524, // 0.80 EUR * 655 = 524 FCFA
+    prisma.product.create({
+      data: {
+        name: 'KOLIKO55',
+        description: 'Boisson énergisante KOLIKO55',
+        price: 40000, // 40000 FCFA
+        costPrice: 30000,
         stock: 50,
         minStock: 10,
-        barcode: '3017620422003',
-        sku: 'LAIT001',
+        barcode: '1234567890123',
+        sku: 'KOL55-001',
         categoryId: categories[0].id,
-      },
+        taxRateId: taxRates[0].id, // 18% TVA
+        isActive: true
+      }
     }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422004' },
-      update: {},
-      create: {
-        name: 'Pain baguette',
-        price: 557, // 0.85 EUR * 655 = 557 FCFA
-        costPrice: 328, // 0.50 EUR * 655 = 328 FCFA
-        stock: 30,
-        minStock: 5,
-        barcode: '3017620422004',
-        sku: 'PAIN001',
-        categoryId: categories[1].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422005' },
-      update: {},
-      create: {
-        name: 'Yaourt nature',
-        price: 426, // 0.65 EUR * 655 = 426 FCFA
-        costPrice: 262, // 0.40 EUR * 655 = 262 FCFA
+    prisma.product.create({
+      data: {
+        name: 'Eau minérale 1L',
+        description: 'Eau minérale naturelle 1 litre',
+        price: 15000, // 15000 FCFA
+        costPrice: 10000,
         stock: 100,
         minStock: 20,
-        barcode: '3017620422005',
-        sku: 'YAOURT001',
+        barcode: '1234567890124',
+        sku: 'EAU-001',
         categoryId: categories[0].id,
-      },
+        taxRateId: taxRates[1].id, // 10% TVA
+        isActive: true
+      }
     }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422006' },
-      update: {},
-      create: {
-        name: 'Pommes Golden',
-        price: 1638, // 2.50 EUR * 655 = 1638 FCFA
-        costPrice: 1179, // 1.80 EUR * 655 = 1179 FCFA
+    prisma.product.create({
+      data: {
+        name: 'Pain de mie',
+        description: 'Pain de mie frais',
+        price: 5000, // 5000 FCFA
+        costPrice: 3500,
+        stock: 30,
+        minStock: 5,
+        barcode: '1234567890125',
+        sku: 'PAIN-001',
+        categoryId: categories[1].id,
+        taxRateId: taxRates[2].id, // 5% TVA
+        isActive: true
+      }
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Savon de toilette',
+        description: 'Savon de toilette parfumé',
+        price: 25000, // 25000 FCFA
+        costPrice: 18000,
+        stock: 40,
+        minStock: 8,
+        barcode: '1234567890126',
+        sku: 'SAVON-001',
+        categoryId: categories[2].id,
+        taxRateId: taxRates[0].id, // 18% TVA
+        isActive: true
+      }
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Chargeur USB',
+        description: 'Chargeur USB universel',
+        price: 150000, // 150000 FCFA
+        costPrice: 120000,
+        stock: 15,
+        minStock: 3,
+        barcode: '1234567890127',
+        sku: 'CHARGE-001',
+        categoryId: categories[3].id,
+        taxRateId: taxRates[0].id, // 18% TVA
+        isActive: true
+      }
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Livre scolaire',
+        description: 'Livre scolaire pour enfants',
+        price: 80000, // 80000 FCFA
+        costPrice: 60000,
         stock: 25,
         minStock: 5,
-        barcode: '3017620422006',
-        sku: 'POMMES001',
-        categoryId: categories[2].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422007' },
-      update: {},
-      create: {
-        name: 'Eau minérale 1.5L',
-        price: 590, // 0.90 EUR * 655 = 590 FCFA
-        costPrice: 393, // 0.60 EUR * 655 = 393 FCFA
-        stock: 80,
-        minStock: 15,
-        barcode: '3017620422007',
-        sku: 'EAU001',
-        categoryId: categories[3].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422008' },
-      update: {},
-      create: {
-        name: 'Chips nature',
-        price: 721, // 1.10 EUR * 655 = 721 FCFA
-        costPrice: 459, // 0.70 EUR * 655 = 459 FCFA
-        stock: 45,
-        minStock: 10,
-        barcode: '3017620422008',
-        sku: 'CHIPS001',
-        categoryId: categories[4].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422009' },
-      update: {},
-      create: {
-        name: 'Café moulu 250g',
-        price: 2293, // 3.50 EUR * 655 = 2293 FCFA
-        costPrice: 1638, // 2.50 EUR * 655 = 1638 FCFA
-        stock: 20,
-        minStock: 5,
-        barcode: '3017620422009',
-        sku: 'CAFE001',
-        categoryId: categories[0].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422010' },
-      update: {},
-      create: {
-        name: 'Bananes 1kg',
-        price: 1179, // 1.80 EUR * 655 = 1179 FCFA
-        costPrice: 786, // 1.20 EUR * 655 = 786 FCFA
-        stock: 35,
-        minStock: 8,
-        barcode: '3017620422010',
-        sku: 'BANANES001',
-        categoryId: categories[2].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422011' },
-      update: {},
-      create: {
-        name: 'Jus d\'orange 1L',
-        price: 1277, // 1.95 EUR * 655 = 1277 FCFA
-        costPrice: 852, // 1.30 EUR * 655 = 852 FCFA
-        stock: 40,
-        minStock: 10,
-        barcode: '3017620422011',
-        sku: 'JUS001',
-        categoryId: categories[3].id,
-      },
-    }),
-    prisma.product.upsert({
-      where: { barcode: '3017620422012' },
-      update: {},
-      create: {
-        name: 'Chocolat noir',
-        price: 1441, // 2.20 EUR * 655 = 1441 FCFA
-        costPrice: 983, // 1.50 EUR * 655 = 983 FCFA
-        stock: 60,
-        minStock: 15,
-        barcode: '3017620422012',
-        sku: 'CHOCO001',
-        categoryId: categories[5].id,
-      },
-    }),
+        barcode: '1234567890128',
+        sku: 'LIVRE-001',
+        categoryId: categories[1].id,
+        taxRateId: taxRates[3].id, // Exonéré
+        isActive: true
+      }
+    })
   ])
 
-  console.log('✅ Products created')
+  console.log(`✅ Created ${products.length} products`)
 
   // Create promo codes
+  console.log('🎫 Creating promo codes...')
   const promoCodes = await Promise.all([
-    prisma.promoCode.upsert({
-      where: { code: 'WELCOME10' },
-      update: {},
-      create: {
+    prisma.promoCode.create({
+      data: {
         code: 'WELCOME10',
         type: 'percentage',
         value: 10,
-        minAmount: 50,
+        minAmount: 50000, // 50000 FCFA
         maxUses: 100,
-        usedCount: 45,
-        validUntil: new Date('2025-12-31'),
-        description: '10% de réduction pour nouveaux clients',
-        isActive: true,
-      },
+        usedCount: 0,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        description: '10% de réduction pour les nouveaux clients',
+        isActive: true
+      }
     }),
-    prisma.promoCode.upsert({
-      where: { code: 'SUMMER20' },
-      update: {},
-      create: {
-        code: 'SUMMER20',
+    prisma.promoCode.create({
+      data: {
+        code: 'FIDELITE20',
         type: 'percentage',
         value: 20,
-        minAmount: 65500, // 100 EUR * 655 = 65500 FCFA
+        minAmount: 100000, // 100000 FCFA
         maxUses: 50,
-        usedCount: 23,
-        validUntil: new Date('2025-08-31'),
-        description: '20% de réduction été',
-        isActive: true,
-      },
+        usedCount: 0,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        description: '20% de réduction pour les clients fidèles',
+        isActive: true
+      }
     }),
-    prisma.promoCode.upsert({
-      where: { code: 'FREESHIP' },
-      update: {},
-      create: {
-        code: 'FREESHIP',
+    prisma.promoCode.create({
+      data: {
+        code: 'FLAT5000',
         type: 'fixed',
-        value: 9825, // 15 EUR * 655 = 9825 FCFA
-        minAmount: 49125, // 75 EUR * 655 = 49125 FCFA
-        maxUses: 200,
-        usedCount: 89,
-        validUntil: new Date('2025-12-31'),
-        description: 'Livraison gratuite (9825 FCFA)',
-        isActive: true,
-      },
-    }),
-    prisma.promoCode.upsert({
-      where: { code: 'FLASH50' },
-      update: {},
-      create: {
-        code: 'FLASH50',
-        type: 'percentage',
-        value: 50,
-        minAmount: 131000, // 200 EUR * 655 = 131000 FCFA
-        maxUses: 10,
-        usedCount: 8,
-        validUntil: new Date('2025-12-31'),
-        description: '50% de réduction flash',
-        isActive: true,
-      },
-    }),
-    prisma.promoCode.upsert({
-      where: { code: 'LOYALTY5' },
-      update: {},
-      create: {
-        code: 'LOYALTY5',
-        type: 'percentage',
-        value: 5,
-        minAmount: 16375, // 25 EUR * 655 = 16375 FCFA
-        maxUses: 500,
-        usedCount: 156,
-        validUntil: new Date('2025-12-31'),
-        description: '5% fidélité',
-        isActive: true,
-      },
-    }),
+        value: 50000, // 50000 FCFA
+        minAmount: 200000, // 200000 FCFA
+        maxUses: 25,
+        usedCount: 0,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 6 months
+        description: '50000 FCFA de réduction sur commande de 200000 FCFA',
+        isActive: true
+      }
+    })
   ])
 
-  console.log('✅ Promo codes created')
+  console.log(`✅ Created ${promoCodes.length} promo codes`)
 
-  // Create sample customers
+  // Create customers
+  console.log('👥 Creating customers...')
   const customers = await Promise.all([
-    prisma.customer.upsert({
-      where: { loyaltyCard: 'LOY001' },
-      update: {},
-      create: {
+    prisma.customer.create({
+      data: {
         name: 'Kossi Adjo',
-        phone: '+22890123456',
         email: 'kossi.adjo@email.com',
-        address: '123 Rue du Commerce, Lomé',
+        phone: '+22890123456',
+        address: '123 Rue du Marché, Lomé, Togo',
         loyaltyCard: 'LOY001',
-        totalSpent: 819078, // 1250.50 EUR * 655 = 819078 FCFA
+        totalSpent: 1500000, // 1500000 FCFA
         visitCount: 15,
-      },
+        isActive: true
+      }
     }),
-    prisma.customer.upsert({
-      where: { loyaltyCard: 'LOY002' },
-      update: {},
-      create: {
+    prisma.customer.create({
+      data: {
         name: 'Awa Mensah',
-        phone: '+22898765432',
         email: 'awa.mensah@email.com',
-        address: '456 Avenue de la Paix, Kara',
+        phone: '+22898765432',
+        address: '456 Avenue de la Paix, Kara, Togo',
         loyaltyCard: 'LOY002',
-        totalSpent: 583441, // 890.75 EUR * 655 = 583441 FCFA
+        totalSpent: 800000, // 800000 FCFA
+        visitCount: 8,
+        isActive: true
+      }
+    }),
+    prisma.customer.create({
+      data: {
+        name: 'Komlan Doe',
+        email: 'komlan.doe@email.com',
+        phone: '+22855556666',
+        address: '789 Boulevard des Étoiles, Sokodé, Togo',
+        loyaltyCard: 'LOY003',
+        totalSpent: 1200000, // 1200000 FCFA
         visitCount: 12,
-      },
-    }),
+        isActive: true
+      }
+    })
   ])
 
-  console.log('✅ Customers created')
+  console.log(`✅ Created ${customers.length} customers`)
 
-  // Create sample settings
-  const settings = await Promise.all([
-    prisma.setting.upsert({
-      where: { key: 'store_name' },
-      update: {},
-      create: {
-        key: 'store_name',
-        value: 'Magasin StockFlow',
-        description: 'Nom du magasin',
-      },
+  // Create sample sales
+  console.log('🛒 Creating sample sales...')
+  const sales = await Promise.all([
+    prisma.sale.create({
+      data: {
+        customerId: customers[0].id,
+        totalAmount: 120000, // 120000 FCFA
+        discountAmount: 12000, // 12000 FCFA (10% promo)
+        taxAmount: 19440, // 19440 FCFA (18% TVA on 108000)
+        finalAmount: 127440, // 127440 FCFA
+        paymentMethod: 'cash',
+        paymentStatus: 'completed',
+        saleDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        notes: 'Vente avec promo WELCOME10'
+      }
     }),
-    prisma.setting.upsert({
-      where: { key: 'tax_rate' },
-      update: {},
-      create: {
-        key: 'tax_rate',
-        value: '18',
-        description: 'Taux de TVA (%)',
-      },
-    }),
-    prisma.setting.upsert({
-      where: { key: 'currency' },
-      update: {},
-      create: {
-        key: 'currency',
-        value: 'XOF',
-        description: 'Devise du magasin',
-      },
-    }),
+    prisma.sale.create({
+      data: {
+        customerId: customers[1].id,
+        totalAmount: 85000, // 85000 FCFA
+        discountAmount: 0,
+        taxAmount: 15300, // 15300 FCFA (18% TVA)
+        finalAmount: 100300, // 100300 FCFA
+        paymentMethod: 'card',
+        paymentStatus: 'completed',
+        saleDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        notes: 'Paiement par carte'
+      }
+    })
   ])
 
-  console.log('✅ Settings created')
+  console.log(`✅ Created ${sales.length} sales`)
+
+  // Create sale items
+  console.log('📋 Creating sale items...')
+  const saleItems = await Promise.all([
+    // Sale 1 items
+    prisma.saleItem.create({
+      data: {
+        saleId: sales[0].id,
+        productId: products[0].id, // KOLIKO55
+        quantity: 2,
+        unitPrice: 40000, // 40000 FCFA
+        discount: 0,
+        totalPrice: 80000 // 80000 FCFA
+      }
+    }),
+    prisma.saleItem.create({
+      data: {
+        saleId: sales[0].id,
+        productId: products[1].id, // Eau minérale
+        quantity: 1,
+        unitPrice: 15000, // 15000 FCFA
+        discount: 0,
+        totalPrice: 15000 // 15000 FCFA
+      }
+    }),
+    prisma.saleItem.create({
+      data: {
+        saleId: sales[0].id,
+        productId: products[2].id, // Pain de mie
+        quantity: 1,
+        unitPrice: 5000, // 5000 FCFA
+        discount: 0,
+        totalPrice: 5000 // 5000 FCFA
+      }
+    }),
+    // Sale 2 items
+    prisma.saleItem.create({
+      data: {
+        saleId: sales[1].id,
+        productId: products[3].id, // Savon
+        quantity: 2,
+        unitPrice: 25000, // 25000 FCFA
+        discount: 0,
+        totalPrice: 50000 // 50000 FCFA
+      }
+    }),
+    prisma.saleItem.create({
+      data: {
+        saleId: sales[1].id,
+        productId: products[4].id, // Chargeur
+        quantity: 1,
+        unitPrice: 150000, // 150000 FCFA
+        discount: 0,
+        totalPrice: 150000 // 150000 FCFA
+      }
+    })
+  ])
+
+  console.log(`✅ Created ${saleItems.length} sale items`)
+
+  // Create inventory movements
+  console.log('📦 Creating inventory movements...')
+  const inventoryMovements = await Promise.all([
+    prisma.inventoryMovement.create({
+      data: {
+        productId: products[0].id,
+        type: 'purchase',
+        quantity: 50,
+        previousStock: 0,
+        newStock: 50,
+        reason: 'Achat initial',
+        reference: 'PO-001',
+        notes: 'Premier achat de KOLIKO55'
+      }
+    }),
+    prisma.inventoryMovement.create({
+      data: {
+        productId: products[0].id,
+        type: 'sale',
+        quantity: -2,
+        previousStock: 50,
+        newStock: 48,
+        reason: 'Vente',
+        reference: sales[0].id,
+        notes: 'Vente de 2 unités'
+      }
+    })
+  ])
+
+  console.log(`✅ Created ${inventoryMovements.length} inventory movements`)
 
   console.log('🎉 Database seeding completed successfully!')
+  console.log('\n📊 Summary:')
+  console.log(`- ${taxRates.length} tax rates`)
+  console.log(`- ${categories.length} categories`)
+  console.log(`- ${products.length} products`)
+  console.log(`- ${promoCodes.length} promo codes`)
+  console.log(`- ${customers.length} customers`)
+  console.log(`- ${sales.length} sales`)
+  console.log(`- ${saleItems.length} sale items`)
+  console.log(`- ${inventoryMovements.length} inventory movements`)
 }
 
 main()
