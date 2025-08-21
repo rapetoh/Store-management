@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import DatabaseService from '@/lib/database'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const sales = await DatabaseService.getAllSales()
+    const { searchParams } = new URL(request.url)
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    
+    let sales
+    if (startDate && endDate) {
+      // Filter sales by date range
+      sales = await DatabaseService.getSalesByDateRange(startDate, endDate)
+    } else {
+      // Get all sales
+      sales = await DatabaseService.getAllSales()
+    }
+    
     return NextResponse.json(sales)
   } catch (error) {
     console.error('Error fetching sales:', error)

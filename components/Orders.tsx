@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { 
   ShoppingCart, 
   Search, 
@@ -61,33 +62,21 @@ interface Sale {
 // Sales will be loaded from database
 
 const statuses = ['Tous les statuts', 'Payé', 'En cours', 'Remboursé', 'Annulé']
-const paymentMethods = ['Toutes les méthodes', 'Espèces', 'Carte bancaire', 'Chèque', 'Virement']
+const paymentMethods = ['Toutes les méthodes', 'cash', 'card', 'check', 'transfer']
 const cashiers = ['Tous les caissiers', 'Marie Dupont', 'Jean Martin', 'Sophie Bernard']
 
 export default function Sales() {
+  const searchParams = useSearchParams()
   const [sales, setSales] = useState<Sale[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    loadSales()
-  }, [])
-
-  const loadSales = async () => {
-    try {
-      const response = await fetch('/api/sales')
-      const data = await response.json()
-      setSales(data)
-    } catch (error) {
-      console.error('Error loading sales:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
   const [selectedStatus, setSelectedStatus] = useState('Tous les statuts')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Toutes les méthodes')
   const [selectedCashier, setSelectedCashier] = useState('Tous les caissiers')
-  const [selectedDate, setSelectedDate] = useState('')
+  const [dateRange, setDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  })
   const [showFilters, setShowFilters] = useState(false)
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   
@@ -100,13 +89,72 @@ export default function Sales() {
   const [showSaleDetailsModal, setShowSaleDetailsModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
 
+  useEffect(() => {
+    loadSales()
+  }, [searchParams])
+
+  // Clear URL parameters when manually navigating to Sales tab
+  useEffect(() => {
+    const section = searchParams.get('section')
+    if (section === 'sales') {
+      // If we're on sales tab but no local date range is set, clear URL parameters
+      if (!dateRange.startDate && !dateRange.endDate) {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('startDate')
+        url.searchParams.delete('endDate')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [searchParams, dateRange])
+
+  // Reload sales when local date range changes
+  useEffect(() => {
+    if (dateRange.startDate && dateRange.endDate) {
+      loadSales()
+    }
+  }, [dateRange])
+
+  const loadSales = async () => {
+    try {
+      // Check for date range parameters from URL or local state
+      let urlStartDate = searchParams.get('startDate')
+      let urlEndDate = searchParams.get('endDate')
+      
+      // Prioritize local date range over URL parameters
+      if (dateRange.startDate && dateRange.endDate) {
+        urlStartDate = dateRange.startDate
+        urlEndDate = dateRange.endDate
+      }
+      
+      let url = '/api/sales'
+      if (urlStartDate && urlEndDate) {
+        url += `?startDate=${urlStartDate}&endDate=${urlEndDate}`
+        console.log('Fetching sales with date range:', urlStartDate, 'to', urlEndDate)
+      } else {
+        console.log('Fetching all sales (no date filter)')
+      }
+      
+      const response = await fetch(url)
+      const data = await response.json()
+      console.log('Sales API response:', data)
+      setSales(data)
+    } catch (error) {
+      console.error('Error loading sales:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const filteredSales = sales.filter(sale => {
     const matchesSearch = sale.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          sale.customer.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = selectedStatus === 'Tous les statuts' || sale.status === selectedStatus
     const matchesPaymentMethod = selectedPaymentMethod === 'Toutes les méthodes' || sale.paymentMethod === selectedPaymentMethod
     const matchesCashier = selectedCashier === 'Tous les caissiers' || sale.cashier === selectedCashier
-    const matchesDate = !selectedDate || sale.date === selectedDate
+
+    // If we have date range filters, the backend API already filtered the data
+    // So we don't need to filter by date in the frontend
+    const matchesDate = true // Backend API handles date filtering
 
     return matchesSearch && matchesStatus && matchesPaymentMethod && matchesCashier && matchesDate
   })
@@ -374,8 +422,17 @@ export default function Sales() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input
                   type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  value={dateRange.startDate}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Au (non inclus)</label>
+                <input
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

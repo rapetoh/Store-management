@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -29,6 +30,7 @@ const navigationItems = [
 ]
 
 export default function Home() {
+  const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -46,6 +48,14 @@ export default function Home() {
 
   const [showAdvancedReportsModal, setShowAdvancedReportsModal] = useState(false)
   const [reportType, setReportType] = useState<'sales' | 'inventory' | 'customers' | 'financial' | 'custom'>('sales')
+
+  // Check URL parameters on mount and when they change
+  useEffect(() => {
+    const section = searchParams.get('section')
+    if (section && ['dashboard', 'products', 'sales', 'customers', 'reports', 'cash', 'settings'].includes(section)) {
+      setActiveSection(section)
+    }
+  }, [searchParams])
 
   // Check cash register status on component mount and when needed
   useEffect(() => {
@@ -73,6 +83,12 @@ export default function Home() {
       // Recherche dans les produits
       if (searchTerm.toLowerCase().includes('produit')) {
         setActiveSection('products')
+        // Clear URL parameters when navigating to products
+        const url = new URL(window.location.href)
+        url.searchParams.delete('startDate')
+        url.searchParams.delete('endDate')
+        url.searchParams.set('section', 'products')
+        window.history.replaceState({}, '', url.toString())
         showToast('info', 'Recherche', `Recherche pour: "${searchTerm}"\n\nRedirection vers la section Produits...`)
       }
       // Recherche dans les ventes
@@ -102,6 +118,12 @@ export default function Home() {
 
   const handleUserProfile = () => {
     setActiveSection('settings')
+    // Clear URL parameters when navigating to settings
+    const url = new URL(window.location.href)
+    url.searchParams.delete('startDate')
+    url.searchParams.delete('endDate')
+    url.searchParams.set('section', 'settings')
+    window.history.replaceState({}, '', url.toString())
     showToast('info', 'Navigation', 'Navigation vers les paramètres utilisateur')
   }
 
@@ -156,13 +178,17 @@ export default function Home() {
   }
 
   const renderContent = () => {
+    // Get date parameters for sales filtering
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard />
       case 'products':
         return <Products />
       case 'sales':
-        return <Sales />
+        return <Sales key={`sales-${startDate}-${endDate}`} />
       case 'customers':
         return <Customers />
       case 'reports':
@@ -194,7 +220,17 @@ export default function Home() {
                 {navigationItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => {
+                      setActiveSection(item.id)
+                      // Clear URL parameters when navigating to non-sales sections
+                      if (item.id !== 'sales') {
+                        const url = new URL(window.location.href)
+                        url.searchParams.delete('startDate')
+                        url.searchParams.delete('endDate')
+                        url.searchParams.set('section', item.id)
+                        window.history.replaceState({}, '', url.toString())
+                      }
+                    }}
                     className={`p-2 rounded-md text-sm font-medium transition-colors group relative ${
                       activeSection === item.id
                         ? 'bg-blue-100 text-blue-700'

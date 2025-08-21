@@ -13,6 +13,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import AddProductModal from './AddProductModal'
 import QuickSaleModal from './QuickSaleModal'
+import { useRouter } from 'next/navigation'
 
 const chartData = [
   { name: 'Lun', ventes: 4000, stock: 2400 },
@@ -39,6 +40,7 @@ const recentProducts = [
 ]
 
 export default function Dashboard() {
+  const router = useRouter()
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
   const [stats, setStats] = useState({
@@ -49,6 +51,7 @@ export default function Dashboard() {
     totalCustomers: 0,
     totalRevenue: 0,
     todayRevenue: 0,
+    yearRevenue: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -84,6 +87,27 @@ export default function Dashboard() {
     loadStats()
   }
 
+  const handleRevenueCardClick = () => {
+    // Calculate Jan 1 of current year
+    const currentYear = new Date().getFullYear()
+    const janFirst = `${currentYear}-01-01`
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Navigate to sales section with date filter
+    // Since this is a single-page app, we need to pass the date filter through URL or state
+    const url = `/?section=sales&startDate=${janFirst}&endDate=${today}`
+    window.location.href = url
+  }
+
+  const handleTodaySalesCardClick = () => {
+    // Get today's date
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Navigate to sales section with today's date filter
+    const url = `/?section=sales&startDate=${today}&endDate=${today}`
+    window.location.href = url
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -111,12 +135,16 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { title: 'Total Produits', value: isLoading ? '...' : (stats?.totalProducts || 0).toString(), icon: Package, color: 'bg-blue-500', change: '' },
-          { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: DollarSign, color: 'bg-green-500', change: '' },
-          { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '' },
-          { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '' },
+          { title: 'Chiffre d\'affaire', value: isLoading ? '...' : `${(stats?.yearRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: DollarSign, color: 'bg-blue-500', change: '', isClickable: true, handler: handleRevenueCardClick },
+          { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: TrendingUp, color: 'bg-green-500', change: '', isClickable: true, handler: handleTodaySalesCardClick },
+          { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '', isClickable: false, handler: null },
+          { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '', isClickable: false, handler: null },
         ].map((stat, index) => (
-          <div key={stat.title} className="bg-white rounded-lg shadow p-6">
+          <div 
+            key={stat.title} 
+            className={`bg-white rounded-lg shadow p-6 ${stat.isClickable ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
+            onClick={stat.isClickable && stat.handler ? () => stat.handler() : undefined}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{stat.title}</p>

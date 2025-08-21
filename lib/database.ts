@@ -263,6 +263,50 @@ export class DatabaseService {
     }))
   }
 
+  static async getSalesByDateRange(startDate: string, endDate: string) {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999) // End of day
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        saleDate: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        customer: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: {
+        saleDate: 'desc',
+      },
+    })
+
+    // Transform the data to match frontend expectations
+    return sales.map(sale => ({
+      id: sale.id,
+      customer: sale.customer?.name || 'Client anonyme',
+      date: sale.saleDate.toLocaleDateString('fr-FR'),
+      time: sale.saleDate.toLocaleTimeString('fr-FR'),
+      total: sale.finalAmount, // Map finalAmount to total
+      status: sale.paymentStatus === 'completed' ? 'Payé' : 'En cours',
+      items: sale.items.length,
+      paymentMethod: sale.paymentMethod,
+      cashier: 'Caissier actuel', // Default value
+      notes: sale.notes,
+      saleItems: sale.items,
+      customerInfo: sale.customer,
+      appliedPromos: [], // Will be populated if needed
+      appliedDiscount: null, // Will be populated if needed
+    }))
+  }
+
   static async getSaleById(id: string) {
     return await prisma.sale.findUnique({
       where: { id },
@@ -513,6 +557,10 @@ export class DatabaseService {
   static async getDashboardStats() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    
+    // Calculate Jan 1 of current year
+    const currentYear = new Date().getFullYear()
+    const janFirst = new Date(currentYear, 0, 1) // January 1st of current year
 
     const [
       totalProducts,
@@ -522,6 +570,7 @@ export class DatabaseService {
       totalCustomers,
       totalRevenue,
       todayRevenue,
+      yearRevenue,
     ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.product.count({
@@ -556,6 +605,16 @@ export class DatabaseService {
           },
         },
       }),
+      prisma.sale.aggregate({
+        _sum: {
+          finalAmount: true,
+        },
+        where: {
+          saleDate: {
+            gte: janFirst,
+          },
+        },
+      }),
     ])
 
     return {
@@ -566,6 +625,7 @@ export class DatabaseService {
       totalCustomers,
       totalRevenue: totalRevenue._sum.finalAmount || 0,
       todayRevenue: todayRevenue._sum.finalAmount || 0,
+      yearRevenue: yearRevenue._sum.finalAmount || 0,
     }
   }
 

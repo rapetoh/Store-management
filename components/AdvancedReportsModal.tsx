@@ -28,6 +28,10 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
   const [generatedReport, setGeneratedReport] = useState<ReportData | null>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
+  })
 
   const periods = [
     { id: 'today', label: 'Aujourd\'hui' },
@@ -46,6 +50,13 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       generateReport()
     }
   }, [isOpen])
+
+  // Regenerate report when custom date range changes
+  useEffect(() => {
+    if (isOpen && selectedPeriod === 'custom') {
+      generateReport()
+    }
+  }, [customDateRange, selectedPeriod])
 
   const loadCategories = async () => {
     try {
@@ -100,28 +111,36 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       // Calculate date range based on selected period
       const now = new Date()
       let startDate = new Date()
+      let endDate = now
       
-      switch (selectedPeriod) {
-        case 'today':
-          startDate.setHours(0, 0, 0, 0)
-          break
-        case 'week':
-          startDate.setDate(now.getDate() - 7)
-          break
-        case 'month':
-          startDate.setMonth(now.getMonth() - 1)
-          break
-        case 'quarter':
-          startDate.setMonth(now.getMonth() - 3)
-          break
-        case 'year':
-          startDate.setFullYear(now.getFullYear() - 1)
-          break
-        default:
-          startDate.setMonth(now.getMonth() - 1)
+      if (selectedPeriod === 'custom') {
+        // Use custom date range
+        startDate = new Date(customDateRange.startDate)
+        endDate = new Date(customDateRange.endDate)
+      } else {
+        // Handle predefined periods
+        switch (selectedPeriod) {
+          case 'today':
+            startDate.setHours(0, 0, 0, 0)
+            break
+          case 'week':
+            startDate.setDate(now.getDate() - 7)
+            break
+          case 'month':
+            startDate.setMonth(now.getMonth() - 1)
+            break
+          case 'quarter':
+            startDate.setMonth(now.getMonth() - 3)
+            break
+          case 'year':
+            startDate.setFullYear(now.getFullYear() - 1)
+            break
+          default:
+            startDate.setMonth(now.getMonth() - 1)
+        }
       }
 
-      const dateParams = `startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`
+      const dateParams = `startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       const categoryParam = selectedFilters.category ? `&categoryId=${selectedFilters.category}` : ''
       const paymentMethodParam = selectedFilters.paymentMethod ? `&paymentMethod=${selectedFilters.paymentMethod}` : ''
       const filterParams = `${dateParams}${categoryParam}${paymentMethodParam}`
@@ -141,7 +160,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                 totalRevenue: salesData.totals?.totalRevenue || 0,
                 totalDiscount: salesData.totals?.totalDiscount || 0,
                 totalTax: salesData.totals?.totalTax || 0,
-                averageTicket: salesData.totals?.totalSales > 0 
+                valeurMoyenne: salesData.totals?.totalSales > 0 
                   ? salesData.totals.totalRevenue / salesData.totals.totalSales 
                   : 0
               },
@@ -481,6 +500,30 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                     </button>
                   ))}
                 </div>
+                
+                {/* Custom Date Range Inputs */}
+                {selectedPeriod === 'custom' && (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                      <input
+                        type="date"
+                        value={customDateRange.startDate}
+                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                      <input
+                        type="date"
+                        value={customDateRange.endDate}
+                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Filters */}
@@ -610,9 +653,9 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                         <div className="bg-purple-50 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-purple-600">Ticket Moyen</p>
+                              <p className="text-sm font-medium text-purple-600">Valeur Moyenne</p>
                               <p className="text-2xl font-bold text-purple-900">
-                                {formatCurrency(generatedReport.data.summary.averageTicket)}
+                                {formatCurrency(generatedReport.data.summary.valeurMoyenne)}
                               </p>
                             </div>
                             <DollarSign className="w-8 h-8 text-purple-600" />
@@ -714,7 +757,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                         <div className="bg-purple-50 rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-purple-600">Ticket Moyen</p>
+                              <p className="text-sm font-medium text-purple-600">Valeur Moyenne</p>
                               <p className="text-2xl font-bold text-purple-900">
                                 {formatCurrency(generatedReport.data.summary.averageOrderValue)}
                               </p>
