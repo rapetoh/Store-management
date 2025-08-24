@@ -16,6 +16,7 @@ export class DatabaseService {
     return await prisma.product.findMany({
       include: {
         category: true,
+        supplier: true,
       },
       where: {
         isActive: true,
@@ -31,6 +32,7 @@ export class DatabaseService {
       where: { id },
       include: {
         category: true,
+        supplier: true,
       },
     })
   }
@@ -63,12 +65,14 @@ export class DatabaseService {
     barcode?: string
     sku?: string
     categoryId?: string
+    supplierId?: string
     image?: string
   }) {
     return await prisma.product.create({
       data,
       include: {
         category: true,
+        supplier: true,
       },
     })
   }
@@ -79,6 +83,7 @@ export class DatabaseService {
       data,
       include: {
         category: true,
+        supplier: true,
       },
     })
   }
@@ -134,6 +139,56 @@ export class DatabaseService {
   static async getCategoryByName(name: string) {
     return await prisma.category.findFirst({
       where: { name },
+    })
+  }
+
+  // Supplier operations
+  static async getAllSuppliers() {
+    return await prisma.supplier.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  }
+
+  static async createSupplier(data: {
+    name: string
+    email?: string
+    phone?: string
+    address?: string
+    contactPerson?: string
+    website?: string
+    notes?: string
+  }) {
+    return await prisma.supplier.create({ data })
+  }
+
+  static async getSupplierById(id: string) {
+    return await prisma.supplier.findUnique({
+      where: { id },
+    })
+  }
+
+  static async getSupplierByName(name: string) {
+    return await prisma.supplier.findFirst({
+      where: { name },
+    })
+  }
+
+  static async updateSupplier(id: string, data: any) {
+    return await prisma.supplier.update({
+      where: { id },
+      data,
+    })
+  }
+
+  static async deleteSupplier(id: string) {
+    return await prisma.supplier.update({
+      where: { id },
+      data: { isActive: false },
     })
   }
 

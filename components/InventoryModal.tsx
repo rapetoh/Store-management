@@ -246,9 +246,7 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
     return products.filter(product => product.currentStock <= product.minStock)
   }
 
-  const getOverStockProducts = () => {
-    return products.filter(product => product.currentStock >= product.maxStock)
-  }
+
 
   const processInventoryUpdate = async () => {
     setIsProcessing(true)
@@ -286,10 +284,9 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
           break
         case 'alert':
           updateData.alerts = {
-            lowStock: getLowStockProducts(),
-            overStock: getOverStockProducts()
+            lowStock: getLowStockProducts()
           }
-          showToast('info', 'Alertes', 'Alertes de stock affichées')
+          showToast('info', 'Alertes', 'Alertes de stock faible affichées')
           break
         case 'count':
           updateData.count = adjustments
@@ -549,33 +546,7 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
                 )}
               </div>
 
-              {/* Over Stock Alerts */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertes stock élevé</h3>
-                {getOverStockProducts().length > 0 ? (
-                  <div className="space-y-3">
-                    {getOverStockProducts().map(product => (
-                      <div key={product.id} className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium text-orange-900">{product.name}</h4>
-                            <p className="text-sm text-orange-700">SKU: {product.sku} • Emplacement: {product.location}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-orange-900">{product.currentStock}</p>
-                            <p className="text-sm text-orange-700">Max: {product.maxStock}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-                    <p>Aucune alerte de stock élevé</p>
-                  </div>
-                )}
-              </div>
+
             </div>
           )}
 

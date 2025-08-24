@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
+import SupplierManagement from './SupplierManagement'
+import CategoryManagement from './CategoryManagement'
 
 interface TaxRate {
   id: string
@@ -306,7 +308,7 @@ export default function Settings() {
   }
 
   const confirmReset = () => {
-    // Reset all settings to defaults
+    // Reset all settings to default values
     setCompanyInfo({
       name: 'StockFlow',
       address: '123 Rue du Commerce\n75001 Paris, France',
@@ -347,6 +349,8 @@ export default function Settings() {
     showToast('success', 'Paramètres réinitialisés', 'Tous les paramètres ont été réinitialisés aux valeurs par défaut.')
   }
 
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -385,6 +389,8 @@ export default function Settings() {
         <nav className="-mb-px flex space-x-8">
           {[
             { id: 'company', label: 'Entreprise', icon: Building2 },
+            { id: 'suppliers', label: 'Fournisseurs', icon: Building2 },
+            { id: 'categories', label: 'Catégories', icon: Building2 },
             { id: 'taxes', label: 'TVA', icon: Receipt },
             { id: 'payments', label: 'Paiements', icon: CreditCard },
             { id: 'receipts', label: 'Reçus', icon: FileText },
@@ -725,6 +731,20 @@ export default function Settings() {
                 <span className="text-sm font-medium">Numérotation automatique</span>
               </label>
             </div>
+          </div>
+        )}
+
+        {/* Suppliers Management */}
+        {activeTab === 'suppliers' && (
+          <div className="space-y-6">
+            <SupplierManagement />
+          </div>
+        )}
+
+        {/* Categories Management */}
+        {activeTab === 'categories' && (
+          <div className="space-y-6">
+            <CategoryManagement />
           </div>
         )}
 

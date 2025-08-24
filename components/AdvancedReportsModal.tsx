@@ -265,9 +265,9 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
         type: type,
         period: selectedPeriod,
         data: reportData,
-        generatedAt: new Date().toISOString(),
-        filters: selectedFilters
-      }
+      generatedAt: new Date().toISOString(),
+      filters: selectedFilters
+    }
 
       setGeneratedReport(newReport)
       setIsGenerating(false)
@@ -278,7 +278,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       
     } catch (error) {
       console.error('Error generating report:', error)
-      setIsGenerating(false)
+    setIsGenerating(false)
       setIsLoading(false)
     }
   }
@@ -429,7 +429,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
         printWindow.document.close()
         printWindow.focus()
         printWindow.print()
-        showToast('success', 'Impression', 'Rapport envoyé à l\'imprimante')
+    showToast('success', 'Impression', 'Rapport envoyé à l\'imprimante')
       } else {
         showToast('error', 'Erreur', 'Impossible d\'ouvrir la fenêtre d\'impression')
       }
@@ -626,45 +626,45 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {type === 'sales' && (
                       <>
-                        <div className="bg-blue-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-blue-600">Total Ventes</p>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-600">Total Ventes</p>
                               <p className="text-2xl font-bold text-blue-900">
                                 {formatCurrency(generatedReport.data.summary.totalRevenue)}
                               </p>
-                            </div>
-                            <TrendingUp className="w-8 h-8 text-blue-600" />
-                          </div>
                         </div>
-                        
-                        <div className="bg-green-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium text-green-600">Transactions</p>
+                        <TrendingUp className="w-8 h-8 text-blue-600" />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-green-600">Transactions</p>
                               <p className="text-2xl font-bold text-green-900">
                                 {generatedReport.data.summary.totalSales}
                               </p>
-                            </div>
-                            <BarChart3 className="w-8 h-8 text-green-600" />
-                          </div>
                         </div>
-                        
-                        <div className="bg-purple-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                        <BarChart3 className="w-8 h-8 text-green-600" />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
                               <p className="text-sm font-medium text-purple-600">Valeur Moyenne</p>
                               <p className="text-2xl font-bold text-purple-900">
                                 {formatCurrency(generatedReport.data.summary.valeurMoyenne)}
                               </p>
-                            </div>
-                            <DollarSign className="w-8 h-8 text-purple-600" />
-                          </div>
                         </div>
-                        
-                        <div className="bg-orange-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                        <DollarSign className="w-8 h-8 text-purple-600" />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-orange-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
                               <p className="text-sm font-medium text-orange-600">Remises</p>
                               <p className="text-2xl font-bold text-orange-900">
                                 {formatCurrency(generatedReport.data.summary.totalDiscount)}
@@ -763,8 +763,8 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                               </p>
                             </div>
                             <BarChart3 className="w-8 h-8 text-purple-600" />
-                          </div>
-                        </div>
+                      </div>
+                    </div>
                       </>
                     )}
                   </div>
@@ -773,29 +773,29 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Sales Trend */}
                     {type === 'sales' && generatedReport.data.salesData && generatedReport.data.salesData.length > 0 && (
-                      <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des ventes</h3>
-                        <ResponsiveContainer width="100%" height={300}>
+                    <div className="bg-white rounded-lg shadow p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des ventes</h3>
+                      <ResponsiveContainer width="100%" height={300}>
                           <RechartsLineChart data={generatedReport.data.salesData.map((item: any) => ({
                             date: new Date(item.date).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' }),
                             revenue: item.revenue,
                             sales: item.salesCount
                           }))}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
                             <Tooltip formatter={(value: any) => [formatCurrency(value), 'Montant']} />
                             <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
-                          </RechartsLineChart>
-                        </ResponsiveContainer>
-                      </div>
+                        </RechartsLineChart>
+                      </ResponsiveContainer>
+                    </div>
                     )}
 
                     {/* Payment Methods */}
                     {type === 'sales' && generatedReport.data.paymentMethods && generatedReport.data.paymentMethods.length > 0 && (
-                      <div className="bg-white rounded-lg shadow p-6">
+                    <div className="bg-white rounded-lg shadow p-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Méthodes de paiement</h3>
-                        <ResponsiveContainer width="100%" height={300}>
+                      <ResponsiveContainer width="100%" height={300}>
                           <RechartsPieChart>
                             <Pie
                               data={generatedReport.data.paymentMethods.map((item: any) => ({
@@ -816,37 +816,37 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                             </Pie>
                             <Tooltip formatter={(value: any) => [formatCurrency(value), 'Montant']} />
                           </RechartsPieChart>
-                        </ResponsiveContainer>
-                      </div>
+                      </ResponsiveContainer>
+                    </div>
                     )}
 
                     {/* Customer Segments */}
                     {type === 'customers' && generatedReport.data.segmentBreakdown && generatedReport.data.segmentBreakdown.length > 0 && (
-                      <div className="bg-white rounded-lg shadow p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Segments clients</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <RechartsPieChart>
-                            <Pie
+                    <div className="bg-white rounded-lg shadow p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Segments clients</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <RechartsPieChart>
+                          <Pie
                               data={generatedReport.data.segmentBreakdown.map((item: any) => ({
                                 name: item.name,
                                 value: item.totalSpent
                               }))}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
                               {generatedReport.data.segmentBreakdown.map((entry: any, index: number) => (
                                 <Cell key={`cell-${index}`} fill={['#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 4]} />
-                              ))}
-                            </Pie>
+                            ))}
+                          </Pie>
                             <Tooltip formatter={(value: any) => [formatCurrency(value), 'Revenus']} />
-                          </RechartsPieChart>
-                        </ResponsiveContainer>
-                      </div>
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
                     )}
 
                     {/* Detailed Table */}
@@ -854,17 +854,17 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails</h3>
                       <div className="overflow-x-auto">
                         {type === 'sales' && generatedReport.data.salesData && (
-                          <table className="min-w-full">
-                            <thead>
-                              <tr className="border-b border-gray-200">
+                        <table className="min-w-full">
+                          <thead>
+                            <tr className="border-b border-gray-200">
                                 <th className="text-left py-2">Date</th>
-                                <th className="text-right py-2">Ventes</th>
-                                <th className="text-right py-2">Revenus</th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                              <th className="text-right py-2">Ventes</th>
+                              <th className="text-right py-2">Revenus</th>
+                            </tr>
+                          </thead>
+                          <tbody>
                               {generatedReport.data.salesData.slice(0, 10).map((item: any, index: number) => (
-                                <tr key={index} className="border-b border-gray-100">
+                              <tr key={index} className="border-b border-gray-100">
                                   <td className="py-2">
                                     {new Date(item.date).toLocaleDateString('fr-FR')}
                                   </td>
@@ -893,10 +893,10 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                                   <td className="text-right py-2">{item.spending.orderCount}</td>
                                   <td className="text-right py-2">{formatCurrency(item.spending.totalSpent)}</td>
                                   <td className="text-right py-2">{item.segment}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                         )}
                       </div>
                     </div>

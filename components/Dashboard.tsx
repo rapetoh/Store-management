@@ -13,6 +13,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import AddProductModal from './AddProductModal'
 import QuickSaleModal from './QuickSaleModal'
+import InventoryModal from './InventoryModal'
 import { useRouter } from 'next/navigation'
 
 const chartData = [
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const router = useRouter()
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
+  const [showInventoryModal, setShowInventoryModal] = useState(false)
   const [stats, setStats] = useState({
     totalProducts: 0,
     lowStockProducts: 0,
@@ -108,6 +110,10 @@ export default function Dashboard() {
     window.location.href = url
   }
 
+  const handleStockAlertsCardClick = () => {
+    setShowInventoryModal(true)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -137,7 +143,7 @@ export default function Dashboard() {
         {[
           { title: 'Chiffre d\'affaire', value: isLoading ? '...' : `${(stats?.yearRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: DollarSign, color: 'bg-blue-500', change: '', isClickable: true, handler: handleRevenueCardClick },
           { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: TrendingUp, color: 'bg-green-500', change: '', isClickable: true, handler: handleTodaySalesCardClick },
-          { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '', isClickable: false, handler: null },
+          { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '', isClickable: true, handler: handleStockAlertsCardClick },
           { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '', isClickable: false, handler: null },
         ].map((stat, index) => (
           <div 
@@ -260,6 +266,16 @@ export default function Dashboard() {
       <QuickSaleModal
         isOpen={showQuickSaleModal}
         onClose={() => setShowQuickSaleModal(false)}
+      />
+
+      <InventoryModal
+        isOpen={showInventoryModal}
+        onClose={() => setShowInventoryModal(false)}
+        type="alert"
+        onInventoryUpdated={(data) => {
+          // Refresh stats after inventory update
+          loadStats()
+        }}
       />
     </div>
   )

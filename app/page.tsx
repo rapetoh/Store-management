@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard } from 'lucide-react'
+import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
 import Sales from '@/components/Orders' // Renamed import from Orders to Sales
@@ -16,12 +16,14 @@ import CashRegisterModal from '@/components/CashRegisterModal' // New import
 import Cash from '@/components/Cash' // New import
 
 import InventoryModal from '@/components/InventoryModal' // New import
+import Inventory from '@/components/Inventory' // New import
 
 import AdvancedReportsModal from '@/components/AdvancedReportsModal' // New import
 
 const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'products', label: 'Produits', icon: Package },
+  { id: 'inventory', label: 'Inventaire', icon: Warehouse },
   { id: 'sales', label: 'Ventes', icon: ShoppingCart },
   { id: 'customers', label: 'Clients', icon: Users },
   { id: 'reports', label: 'Rapports', icon: BarChart3 },
@@ -52,7 +54,7 @@ export default function Home() {
   // Check URL parameters on mount and when they change
   useEffect(() => {
     const section = searchParams.get('section')
-    if (section && ['dashboard', 'products', 'sales', 'customers', 'reports', 'cash', 'settings'].includes(section)) {
+    if (section && ['dashboard', 'products', 'inventory', 'sales', 'customers', 'reports', 'cash', 'settings'].includes(section)) {
       setActiveSection(section)
     }
   }, [searchParams])
@@ -187,6 +189,8 @@ export default function Home() {
         return <Dashboard />
       case 'products':
         return <Products />
+      case 'inventory':
+        return <Inventory />
       case 'sales':
         return <Sales key={`sales-${startDate}-${endDate}`} />
       case 'customers':
