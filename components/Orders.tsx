@@ -199,7 +199,34 @@ export default function Sales() {
     setShowQuickSaleModal(true)
   }
 
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || null,
+          category: 'Ventes'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   const handleSaleCompleted = (sale: any) => {
+    // Log the sale activity
+    logActivity(
+      'sale',
+      `Vente #${sale.id} - ${sale.itemCount || 0} articles - ${sale.paymentMethod || 'Non spécifié'}`,
+      sale.total || 0
+    )
+    
     // Refresh sales list from database
     loadSales()
     showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: ${(sale.total || 0).toLocaleString('fr-FR')} FCFA`)
@@ -233,6 +260,13 @@ export default function Sales() {
 
   const confirmDelete = () => {
     if (selectedSale) {
+      // Log the deletion activity
+      logActivity(
+        'modification',
+        `Suppression vente #${selectedSale.id} - Total: ${selectedSale.total.toLocaleString('fr-FR')} FCFA`,
+        -(selectedSale.total || 0) // Negative impact for deletion
+      )
+      
       setSales(prev => prev.filter(s => s.id !== selectedSale.id))
       showToast('success', 'Vente supprimée', `La vente "${selectedSale.id}" a été supprimée avec succès.`)
       setSelectedSale(null)

@@ -120,6 +120,26 @@ export default function Settings() {
     }
   }
 
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || undefined,
+          category: 'Paramètres'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
     if (typeof window !== 'undefined' && (window as any).showToast) {
       (window as any).showToast({ type, title, message })

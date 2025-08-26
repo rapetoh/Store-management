@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse } from 'lucide-react'
+import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
 import Sales from '@/components/Orders' // Renamed import from Orders to Sales
@@ -17,6 +17,7 @@ import Cash from '@/components/Cash' // New import
 
 import InventoryModal from '@/components/InventoryModal' // New import
 import Inventory from '@/components/Inventory' // New import
+import Logs from '@/components/Logs' // New import
 
 import AdvancedReportsModal from '@/components/AdvancedReportsModal' // New import
 
@@ -28,6 +29,7 @@ const navigationItems = [
   { id: 'customers', label: 'Clients', icon: Users },
   { id: 'reports', label: 'Rapports', icon: BarChart3 },
   { id: 'cash', label: 'Caisse', icon: CreditCard },
+  { id: 'logs', label: 'Logs', icon: FileText },
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ]
 
@@ -54,7 +56,7 @@ export default function Home() {
   // Check URL parameters on mount and when they change
   useEffect(() => {
     const section = searchParams.get('section')
-    if (section && ['dashboard', 'products', 'inventory', 'sales', 'customers', 'reports', 'cash', 'settings'].includes(section)) {
+    if (section && ['dashboard', 'products', 'inventory', 'sales', 'customers', 'reports', 'cash', 'logs', 'settings'].includes(section)) {
       setActiveSection(section)
     }
   }, [searchParams])
@@ -199,6 +201,8 @@ export default function Home() {
         return <Reports />
       case 'cash':
         return <Cash />
+      case 'logs':
+        return <Logs />
       case 'settings':
         return <SettingsPage />
       default:

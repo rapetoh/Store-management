@@ -49,6 +49,26 @@ export default function CategoryManagement() {
     }
   }
 
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || undefined,
+          category: 'Catégories'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   const handleAddCategory = async () => {
     try {
       const response = await fetch('/api/categories', {
@@ -60,6 +80,13 @@ export default function CategoryManagement() {
       })
 
       if (response.ok) {
+        // Log the category addition
+        await logActivity(
+          'modification',
+          `Ajout catégorie: ${formData.name}`,
+          undefined
+        )
+        
         await loadCategories()
         setShowAddModal(false)
         resetForm()
@@ -84,6 +111,13 @@ export default function CategoryManagement() {
       })
 
       if (response.ok) {
+        // Log the category modification
+        await logActivity(
+          'modification',
+          `Modification catégorie: ${selectedCategory.name} → ${formData.name}`,
+          undefined
+        )
+        
         await loadCategories()
         setShowEditModal(false)
         resetForm()
@@ -104,6 +138,13 @@ export default function CategoryManagement() {
       })
 
       if (response.ok) {
+        // Log the category deletion
+        await logActivity(
+          'modification',
+          `Suppression catégorie: ${selectedCategory.name}`,
+          undefined
+        )
+        
         await loadCategories()
         setShowDeleteModal(false)
         showToast('success', 'Catégorie supprimée', 'La catégorie a été supprimée avec succès !')

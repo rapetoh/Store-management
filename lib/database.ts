@@ -1028,6 +1028,82 @@ export class DatabaseService {
       where: { id }
     })
   }
+
+  // Activity Log Management
+  static async getActivityLogs(params: {
+    action?: string
+    user?: string
+    category?: string
+    startDate?: string
+    endDate?: string
+    limit?: number
+    offset?: number
+  } = {}) {
+    const { action, user, category, startDate, endDate, limit = 100, offset = 0 } = params
+
+    const where: any = {}
+
+    if (action) where.action = action
+    if (user) where.user = { contains: user, mode: 'insensitive' }
+    if (category) where.category = category
+    if (startDate || endDate) {
+      where.timestamp = {}
+      if (startDate) where.timestamp.gte = new Date(startDate)
+      if (endDate) where.timestamp.lte = new Date(endDate)
+    }
+
+    return await prisma.activityLog.findMany({
+      where,
+      orderBy: {
+        timestamp: 'desc'
+      },
+      take: limit,
+      skip: offset
+    })
+  }
+
+  static async createActivityLog(data: {
+    action: string
+    details: string
+    user: string
+    financialImpact?: number | null
+    category: string
+    metadata?: string | null
+  }) {
+    return await prisma.activityLog.create({
+      data: {
+        action: data.action,
+        details: data.details,
+        user: data.user,
+        financialImpact: data.financialImpact,
+        category: data.category,
+        metadata: data.metadata
+      }
+    })
+  }
+
+  static async getActivityLogsCount(params: {
+    action?: string
+    user?: string
+    category?: string
+    startDate?: string
+    endDate?: string
+  } = {}) {
+    const { action, user, category, startDate, endDate } = params
+
+    const where: any = {}
+
+    if (action) where.action = action
+    if (user) where.user = { contains: user, mode: 'insensitive' }
+    if (category) where.category = category
+    if (startDate || endDate) {
+      where.timestamp = {}
+      if (startDate) where.timestamp.gte = new Date(startDate)
+      if (endDate) where.timestamp.lte = new Date(endDate)
+    }
+
+    return await prisma.activityLog.count({ where })
+  }
 }
 
 export default DatabaseService 

@@ -73,6 +73,14 @@ export default function Inventory() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
+  const [adjustmentData, setAdjustmentData] = useState({
+    productId: '',
+    productName: '',
+    currentStock: 0,
+    newStock: 0,
+    reason: ''
+  })
 
   useEffect(() => {
     loadInventoryData()
@@ -197,6 +205,71 @@ export default function Inventory() {
     }
   }
 
+  const openAdjustmentModal = (productId: string, productName: string, currentStock: number) => {
+    setAdjustmentData({
+      productId,
+      productName,
+      currentStock,
+      newStock: currentStock,
+      reason: ''
+    })
+    setShowAdjustmentModal(true)
+  }
+
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || null,
+          category: 'Inventaire'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
+  const handleAdjustment = async () => {
+    try {
+      const difference = adjustmentData.newStock - adjustmentData.currentStock
+      const financialImpact = difference * 150000 // Assuming cost price of 150,000 FCFA
+      
+      // Log the adjustment activity
+      await logActivity(
+        'adjustment',
+        `Ajustement ${adjustmentData.productName}: ${adjustmentData.currentStock} → ${adjustmentData.newStock} (${difference > 0 ? '+' : ''}${difference}) - ${adjustmentData.reason}`,
+        financialImpact
+      )
+      
+      // TODO: Implement API call to save adjustment
+      console.log('Adjustment:', {
+        productId: adjustmentData.productId,
+        productName: adjustmentData.productName,
+        previousStock: adjustmentData.currentStock,
+        newStock: adjustmentData.newStock,
+        difference,
+        reason: adjustmentData.reason,
+        financialImpact
+      })
+      
+      setShowAdjustmentModal(false)
+      showToast('success', 'Ajustement effectué', `Stock ajusté de ${adjustmentData.currentStock} à ${adjustmentData.newStock}`)
+      
+      // Reload data
+      await loadInventoryData()
+    } catch (error) {
+      console.error('Error making adjustment:', error)
+      showToast('error', 'Erreur', 'Erreur lors de l\'ajustement')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -233,8 +306,7 @@ export default function Inventory() {
              { id: 'movements', label: 'Mouvements', icon: TrendingUp },
              { id: 'purchase-orders', label: 'Ravitaillement', icon: Truck },
              { id: 'counts', label: 'Inventaires', icon: CheckCircle },
-             { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
-             { id: 'logs', label: 'Logs', icon: BarChart3 }
+             { id: 'alerts', label: 'Alertes', icon: AlertTriangle }
            ].map((tab) => (
             <button
               key={tab.id}
@@ -257,75 +329,122 @@ export default function Inventory() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900">Vue d'ensemble de l'inventaire</h3>
-            
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-600">Produits en stock</p>
-                    <p className="text-2xl font-bold text-blue-900">1,234</p>
-                  </div>
-                  <Package className="w-8 h-8 text-blue-600" />
-                </div>
-              </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-600">Valeur totale</p>
-                    <p className="text-2xl font-bold text-green-900">45,678,900 FCFA</p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
-                </div>
-              </div>
-              
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-yellow-600">Stock faible</p>
-                    <p className="text-2xl font-bold text-yellow-900">12</p>
-                  </div>
-                  <AlertTriangle className="w-8 h-8 text-yellow-600" />
-                </div>
-              </div>
-              
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-600">Commandes en cours</p>
-                    <p className="text-2xl font-bold text-purple-900">5</p>
-                  </div>
-                  <Truck className="w-8 h-8 text-purple-600" />
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Liste des produits - Inventaire physique</h3>
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un produit..."
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Recent Activity */}
-            <div>
-              <h4 className="text-md font-semibold text-gray-900 mb-4">Activité récente</h4>
-              <div className="space-y-3">
-                {stockMovements.slice(0, 5).map((movement) => (
-                  <div key={movement.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {getMovementIcon(movement.type)}
-                      <div>
-                        <p className="font-medium text-gray-900">{movement.productName}</p>
-                        <p className="text-sm text-gray-600">{movement.reason}</p>
+            {/* Products Table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Produit
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Stock système
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Stock minimum
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Valeur stock
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <Package className="w-5 h-5 text-blue-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">Chargeur USB</div>
+                          <div className="text-sm text-gray-500">CHARGE-001112</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">
-                        {movement.type === 'in' ? '+' : '-'}{movement.quantity}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(movement.date).toLocaleDateString('fr-FR')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">65</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">3</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">9,750,000 FCFA</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        En stock
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                             <button 
+                         onClick={() => openAdjustmentModal('1', 'Chargeur USB', 65)}
+                         className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100"
+                       >
+                         Ajuster
+                       </button>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <Package className="w-5 h-5 text-red-600" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">Produit pas cher</div>
+                          <div className="text-sm text-gray-500">ALIM-002</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">3</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">15</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">300 FCFA</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                        Stock faible
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                             <button 
+                         onClick={() => openAdjustmentModal('2', 'Produit pas cher', 3)}
+                         className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100"
+                       >
+                         Ajuster
+                       </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -603,8 +722,102 @@ export default function Inventory() {
               </div>
             </div>
           </div>
-        )}
+                 )}
       </div>
+
+      {/* Adjustment Modal */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg font-semibold text-gray-900">Ajustement de stock</h3>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Produit</label>
+                <input
+                  type="text"
+                  value={adjustmentData.productName}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock actuel (système)</label>
+                <input
+                  type="number"
+                  value={adjustmentData.currentStock}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau stock (physique) *</label>
+                <input
+                  type="number"
+                  value={adjustmentData.newStock}
+                  onChange={(e) => setAdjustmentData(prev => ({ ...prev, newStock: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Différence</label>
+                <div className={`w-full px-3 py-2 border rounded-md ${
+                  adjustmentData.newStock - adjustmentData.currentStock > 0 
+                    ? 'border-green-300 bg-green-50 text-green-700' 
+                    : adjustmentData.newStock - adjustmentData.currentStock < 0 
+                    ? 'border-red-300 bg-red-50 text-red-700'
+                    : 'border-gray-300 bg-gray-50 text-gray-700'
+                }`}>
+                  {adjustmentData.newStock - adjustmentData.currentStock > 0 ? '+' : ''}
+                  {adjustmentData.newStock - adjustmentData.currentStock}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Raison de l'ajustement *</label>
+                <textarea
+                  value={adjustmentData.reason}
+                  onChange={(e) => setAdjustmentData(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Ex: Inventaire physique, Perte, Vol, Erreur de saisie..."
+                  required
+                />
+              </div>
+              {adjustmentData.reason && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Impact financier estimé:</h4>
+                  <p className={`text-lg font-bold ${
+                    adjustmentData.newStock - adjustmentData.currentStock > 0 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {adjustmentData.newStock - adjustmentData.currentStock > 0 ? '+' : ''}
+                    {((adjustmentData.newStock - adjustmentData.currentStock) * 150000).toLocaleString('fr-FR')} FCFA
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">Basé sur le prix de revient estimé</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 flex-shrink-0">
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAdjustment}
+                disabled={!adjustmentData.reason.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Appliquer l'ajustement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

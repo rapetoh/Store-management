@@ -89,7 +89,34 @@ export default function Dashboard() {
     loadStats()
   }
 
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || undefined,
+          category: 'Dashboard'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   const handleRevenueCardClick = () => {
+    // Log the dashboard interaction
+    logActivity(
+      'login',
+      'Navigation: Dashboard → Ventes (Chiffre d\'affaires annuel)',
+      undefined
+    )
+    
     // Calculate Jan 1 of current year
     const currentYear = new Date().getFullYear()
     const janFirst = `${currentYear}-01-01`

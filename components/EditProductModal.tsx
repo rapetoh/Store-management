@@ -141,6 +141,25 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
       })
 
       if (response.ok) {
+        // Log the product update
+        try {
+          await fetch('/api/logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'modification',
+              details: `Modification produit: ${product.name} → ${formData.name} - Prix: ${product.price} → ${parseFloat(formData.price)} FCFA - Stock: ${product.stock} → ${parseInt(formData.stock) || 0}`,
+              user: 'Admin',
+              financialImpact: undefined,
+              category: 'Produits'
+            }),
+          })
+        } catch (logError) {
+          console.error('Error logging product update:', logError)
+        }
+        
         showToast('success', 'Produit mis à jour', 'Le produit a été mis à jour avec succès')
         onProductUpdated()
         onClose()

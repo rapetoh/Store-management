@@ -122,6 +122,25 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       })
 
       if (response.ok) {
+        // Log the product addition
+        try {
+          await fetch('/api/logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'modification',
+              details: `Ajout produit: ${formData.name} (${formData.sku || 'N/A'}) - Prix: ${parseFloat(formData.price).toLocaleString('fr-FR')} FCFA - Stock initial: ${parseInt(formData.stock) || 0}`,
+              user: 'Admin',
+              financialImpact: undefined,
+              category: 'Produits'
+            }),
+          })
+        } catch (logError) {
+          console.error('Error logging product addition:', logError)
+        }
+        
         showToast('success', 'Produit ajouté', 'Le produit a été ajouté avec succès')
         resetForm()
         onProductAdded()

@@ -62,6 +62,26 @@ export default function SupplierManagement() {
     }
   }
 
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || null,
+          category: 'Fournisseurs'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   const handleAddSupplier = async () => {
     try {
       const response = await fetch('/api/suppliers', {
@@ -73,6 +93,13 @@ export default function SupplierManagement() {
       })
 
       if (response.ok) {
+        // Log the activity
+        await logActivity(
+          'modification',
+          `Ajout fournisseur: ${formData.name}`,
+          null // No financial impact for supplier addition
+        )
+        
         await loadSuppliers()
         setShowAddModal(false)
         resetForm()
@@ -97,6 +124,13 @@ export default function SupplierManagement() {
       })
 
       if (response.ok) {
+        // Log the activity
+        await logActivity(
+          'modification',
+          `Modification fournisseur: ${selectedSupplier.name} → ${formData.name}`,
+          null // No financial impact for supplier modification
+        )
+        
         await loadSuppliers()
         setShowEditModal(false)
         resetForm()
@@ -117,6 +151,13 @@ export default function SupplierManagement() {
       })
 
       if (response.ok) {
+        // Log the activity
+        await logActivity(
+          'modification',
+          `Suppression fournisseur: ${selectedSupplier.name}`,
+          null // No financial impact for supplier deletion
+        )
+        
         await loadSuppliers()
         setShowDeleteModal(false)
         showToast('success', 'Fournisseur supprimé', 'Le fournisseur a été supprimé avec succès !')

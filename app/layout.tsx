@@ -2,6 +2,12 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ToastContainer } from '@/components/Toast'
+import { universalLogger } from '@/lib/universalLogger'
+
+// Initialize the universal logger
+if (typeof window !== 'undefined') {
+  universalLogger.init()
+}
 
 const inter = Inter({ subsets: ['latin'] })
 

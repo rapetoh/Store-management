@@ -164,6 +164,27 @@ export default function Products() {
     loadProducts(newPage)
   }
 
+  // Logging function
+  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+    try {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          details,
+          user: 'Admin', // TODO: Get actual user from auth system
+          financialImpact: financialImpact || null,
+          category: 'Produits'
+        }),
+      })
+    } catch (error) {
+      console.error('Error logging activity:', error)
+    }
+  }
+
   // Handle product deletion
   const handleDeleteProduct = async () => {
     if (!selectedProduct) return
@@ -175,6 +196,13 @@ export default function Products() {
       })
 
       if (response.ok) {
+        // Log the deletion
+        await logActivity(
+          'modification',
+          `Suppression produit: ${selectedProduct.name} (${selectedProduct.sku || 'N/A'}) - Stock: ${selectedProduct.stock}`,
+          undefined
+        )
+        
         showToast('success', 'Produit supprimé', 'Le produit a été supprimé avec succès')
         loadProducts(pagination.page) // Reload current page
         setShowConfirmModal(false)

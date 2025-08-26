@@ -236,3 +236,21 @@ model CashSession {
   @@index([status])
   @@index([cashierId])
 }
+
+// Activity logs table for tracking all application actions
+model ActivityLog {
+  id              String    @id @default(cuid())
+  action          String    // sale, adjustment, purchase, modification, login, other
+  details         String
+  user            String
+  financialImpact Float?    // null for N/A cases
+  category        String
+  timestamp       DateTime  @default(now())
+  metadata        String?   // JSON string for additional data
+  
+  @@index([action])
+  @@index([user])
+  @@index([category])
+  @@index([timestamp])
+  @@index([financialImpact])
+}
