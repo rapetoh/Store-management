@@ -46,7 +46,8 @@ function getActionType(pathname: string, method: string): string {
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname, method } = request
+  const pathname = request.nextUrl.pathname
+  const method = request.method
   
   // Check if this is a loggable endpoint and method
   const shouldLog = LOGGABLE_ENDPOINTS.some(endpoint => pathname.startsWith(endpoint)) && 

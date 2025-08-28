@@ -16,23 +16,6 @@ import QuickSaleModal from './QuickSaleModal'
 import InventoryModal from './InventoryModal'
 import { useRouter } from 'next/navigation'
 
-const chartData = [
-  { name: 'Lun', ventes: 4000, stock: 2400 },
-  { name: 'Mar', ventes: 3000, stock: 1398 },
-  { name: 'Mer', ventes: 2000, stock: 9800 },
-  { name: 'Jeu', ventes: 2780, stock: 3908 },
-  { name: 'Ven', ventes: 1890, stock: 4800 },
-  { name: 'Sam', ventes: 2390, stock: 3800 },
-  { name: 'Dim', ventes: 3490, stock: 4300 },
-]
-
-const pieData = [
-  { name: 'Électronique', value: 400, color: '#3B82F6' },
-  { name: 'Accessoires', value: 300, color: '#10B981' },
-  { name: 'Bureau', value: 200, color: '#6B7280' },
-  { name: 'Autres', value: 100, color: '#F59E0B' },
-]
-
 const recentProducts = [
   { id: 1, name: 'Souris Sans Fil X2', stock: 150, status: 'En stock', trend: 'up' },
   { id: 2, name: 'Clavier Ergonomique', stock: 20, status: 'Stock faible', trend: 'down' },
@@ -45,6 +28,18 @@ export default function Dashboard() {
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
   const [showInventoryModal, setShowInventoryModal] = useState(false)
+  const [chartData, setChartData] = useState([
+    { name: 'Lun', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Mar', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Mer', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Jeu', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Ven', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Sam', chiffreAffaire: 0, benefice: 0 },
+    { name: 'Dim', chiffreAffaire: 0, benefice: 0 },
+  ])
+  const [pieData, setPieData] = useState([
+    { name: 'Aucune donnée', value: 1, color: '#6B7280' },
+  ])
   const [stats, setStats] = useState({
     totalProducts: 0,
     lowStockProducts: 0,
@@ -59,6 +54,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadStats()
+    loadChartData()
+    loadCategoryProfitData()
   }, [])
 
   const loadStats = async () => {
@@ -70,6 +67,28 @@ export default function Dashboard() {
       console.error('Error loading stats:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadChartData = async () => {
+    try {
+      const response = await fetch('/api/dashboard/chart-data')
+      const data = await response.json()
+      setChartData(data)
+    } catch (error) {
+      console.error('Error loading chart data:', error)
+    }
+  }
+
+  const loadCategoryProfitData = async () => {
+    try {
+      const response = await fetch('/api/dashboard/category-profit')
+      const data = await response.json()
+      if (data.length > 0) {
+        setPieData(data)
+      }
+    } catch (error) {
+      console.error('Error loading category profit data:', error)
     }
   }
 
@@ -85,8 +104,10 @@ export default function Dashboard() {
 
   const handleSaleCompleted = (sale: any) => {
     showToast('success', 'Vente terminée', `La vente ${sale.id} a été enregistrée avec succès !\n\nTotal: ${sale.total.toLocaleString('fr-FR')} FCFA`)
-    // Refresh stats after sale
+    // Refresh stats and chart data after sale
     loadStats()
+    loadChartData()
+    loadCategoryProfitData()
   }
 
   const logActivity = async (action: string, details: string, financialImpact?: number) => {
@@ -208,21 +229,50 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des Ventes</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Évolution des Ventes (Semaine en cours)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="ventes" stroke="#3B82F6" strokeWidth={2} />
+              <Tooltip 
+                formatter={(value: any, name: string) => [
+                  `${value.toLocaleString('fr-FR')} FCFA`, 
+                  name
+                ]}
+                labelFormatter={(label) => {
+                  const now = new Date()
+                  const currentDay = now.getDay()
+                  const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1
+                  const monday = new Date(now)
+                  monday.setDate(now.getDate() - daysFromMonday)
+                  const weekStart = monday.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+                  const weekEnd = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+                  return `${label} (${weekStart}-${weekEnd})`
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="chiffreAffaire" 
+                stroke="#3B82F6" 
+                strokeWidth={2}
+                name="Chiffre d'affaire"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="benefice" 
+                stroke="#10B981" 
+                strokeWidth={2}
+                name="Bénéfice"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Category Distribution */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition par Catégorie</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Marge Catégorielle (Bénéfices)</h3>
+          <p className="text-sm text-gray-600 mb-4">Bénéfices par catégorie depuis le 1er janvier {new Date().getFullYear()}</p>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -230,7 +280,7 @@ export default function Dashboard() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, value }) => `${name}\n${value.toLocaleString('fr-FR')} FCFA`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -239,9 +289,17 @@ export default function Dashboard() {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                formatter={(value: any) => [`${value.toLocaleString('fr-FR')} FCFA`, 'Bénéfice']}
+                labelFormatter={(label) => `${label}`}
+              />
             </PieChart>
           </ResponsiveContainer>
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Total des bénéfices: {pieData.reduce((sum, item) => sum + item.value, 0).toLocaleString('fr-FR')} FCFA
+            </p>
+          </div>
         </div>
       </div>
 

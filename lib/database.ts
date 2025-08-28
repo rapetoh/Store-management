@@ -1104,6 +1104,128 @@ export class DatabaseService {
 
     return await prisma.activityLog.count({ where })
   }
+
+  // Get sales data for current week
+  static async getSalesByWeekdayCurrentYear() {
+    // Get current week (Monday to Sunday)
+    const now = new Date()
+    const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, etc.
+    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1 // Days since Monday
+    
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - daysFromMonday)
+    monday.setHours(0, 0, 0, 0) // Start of Monday
+    
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999) // End of Sunday
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        saleDate: {
+          gte: monday,
+          lte: sunday,
+        },
+        paymentStatus: 'completed',
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    })
+
+    // Initialize weekday data for current week
+    const weekdays = [
+      { name: 'Lun', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Mar', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Mer', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Jeu', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Ven', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Sam', chiffreAffaire: 0, benefice: 0, count: 0 },
+      { name: 'Dim', chiffreAffaire: 0, benefice: 0, count: 0 },
+    ]
+
+    // Group sales by weekday for current week
+    sales.forEach(sale => {
+      const dayOfWeek = sale.saleDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+      const weekdayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Convert to our array index (Monday = 0)
+      
+      // Calculate revenue (chiffre d'affaire)
+      const revenue = sale.finalAmount
+      weekdays[weekdayIndex].chiffreAffaire += revenue
+      weekdays[weekdayIndex].count += 1
+
+      // Calculate profit (bénéfice) for each item
+      let totalProfit = 0
+      sale.items.forEach(item => {
+        const product = item.product
+        if (product && product.costPrice && product.price) {
+          const profitPerUnit = product.price - product.costPrice
+          totalProfit += profitPerUnit * item.quantity
+        }
+      })
+      weekdays[weekdayIndex].benefice += totalProfit
+    })
+
+    return weekdays
+  }
+
+  // Get category profit data for current year
+  static async getCategoryProfitData() {
+    const currentYear = new Date().getFullYear()
+    const startOfYear = new Date(currentYear, 0, 1) // January 1st
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999) // December 31st
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        saleDate: {
+          gte: startOfYear,
+          lte: endOfYear,
+        },
+        paymentStatus: 'completed',
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Group profit by category
+    const categoryProfit: { [key: string]: number } = {}
+
+    sales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = item.product
+        if (product && product.costPrice && product.price && product.category) {
+          const profitPerUnit = product.price - product.costPrice
+          const totalProfit = profitPerUnit * item.quantity
+          const categoryName = product.category.name
+          
+          categoryProfit[categoryName] = (categoryProfit[categoryName] || 0) + totalProfit
+        }
+      })
+    })
+
+    // Convert to array format for chart
+    const colors = ['#3B82F6', '#10B981', '#6B7280', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16']
+    const result = Object.entries(categoryProfit).map(([name, value], index) => ({
+      name,
+      value,
+      color: colors[index % colors.length]
+    }))
+
+    return result
+  }
 }
 
 export default DatabaseService 
