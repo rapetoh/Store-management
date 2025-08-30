@@ -154,6 +154,23 @@ export class DatabaseService {
     })
   }
 
+  static async searchSuppliers(searchTerm: string) {
+    return await prisma.supplier.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: searchTerm } },
+          { email: { contains: searchTerm } },
+          { phone: { contains: searchTerm } }
+        ]
+      },
+      orderBy: {
+        name: 'asc'
+      },
+      take: 10 // Limit results
+    })
+  }
+
   static async createSupplier(data: {
     name: string
     email?: string
@@ -258,29 +275,67 @@ export class DatabaseService {
       totalPrice: number
     }>
   }) {
-    return await prisma.sale.create({
-      data: {
-        customerId: data.customerId,
-        totalAmount: data.totalAmount,
-        discountAmount: data.discountAmount || 0,
-        taxAmount: data.taxAmount || 0,
-        finalAmount: data.finalAmount,
-        paymentMethod: data.paymentMethod,
-        paymentStatus: data.paymentStatus || 'completed',
-        notes: data.notes,
-        cashierId: data.cashierId,
-        items: {
-          create: data.items,
-        },
-      },
-      include: {
-        customer: true,
-        items: {
-          include: {
-            product: true,
+    // Create the sale with transaction to ensure data consistency
+    return await prisma.$transaction(async (tx) => {
+      // Create the sale
+      const sale = await tx.sale.create({
+        data: {
+          customerId: data.customerId,
+          totalAmount: data.totalAmount,
+          discountAmount: data.discountAmount || 0,
+          taxAmount: data.taxAmount || 0,
+          finalAmount: data.finalAmount,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: data.paymentStatus || 'completed',
+          notes: data.notes,
+          cashierId: data.cashierId,
+          items: {
+            create: data.items,
           },
         },
-      },
+        include: {
+          customer: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      })
+
+      // Update stock and create inventory movements for each item
+      for (const item of data.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId }
+        })
+
+        if (product) {
+          const previousStock = product.stock
+          const newStock = previousStock - item.quantity
+
+          // Update product stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: newStock }
+          })
+
+          // Create inventory movement record
+          await tx.inventoryMovement.create({
+            data: {
+              productId: item.productId,
+              type: 'vente',
+              quantity: -item.quantity, // Negative for sales (stock decrease)
+              previousStock,
+              newStock,
+              reason: `Vente ${sale.id}`,
+              reference: `Vente ${sale.id}`,
+              userId: data.cashierId || 'Admin'
+            }
+          })
+        }
+      }
+
+      return sale
     })
   }
 
@@ -1044,7 +1099,7 @@ export class DatabaseService {
     const where: any = {}
 
     if (action) where.action = action
-    if (user) where.user = { contains: user, mode: 'insensitive' }
+    if (user) where.user = { contains: user }
     if (category) where.category = category
     if (startDate || endDate) {
       where.timestamp = {}
@@ -1094,7 +1149,7 @@ export class DatabaseService {
     const where: any = {}
 
     if (action) where.action = action
-    if (user) where.user = { contains: user, mode: 'insensitive' }
+    if (user) where.user = { contains: user }
     if (category) where.category = category
     if (startDate || endDate) {
       where.timestamp = {}
@@ -1225,6 +1280,350 @@ export class DatabaseService {
     }))
 
     return result
+  }
+
+  // Inventory Management Methods
+  static async markProductAsOK(id: string) {
+    return await prisma.product.update({
+      where: { id },
+      data: {
+        lastInventoryDate: new Date(),
+        lastInventoryStatus: 'OK'
+      }
+    })
+  }
+
+  static async adjustProductStock(id: string, newStock: number, reason: string, notes?: string) {
+    const product = await prisma.product.findUnique({ where: { id } })
+    if (!product) throw new Error('Product not found')
+
+    const previousStock = product.stock
+    const stockDifference = newStock - previousStock
+
+    // Update product stock and inventory status
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: {
+        stock: newStock,
+        lastInventoryDate: new Date(),
+        lastInventoryStatus: 'ADJUSTED'
+      }
+    })
+
+    // Create inventory movement record
+    await prisma.inventoryMovement.create({
+      data: {
+        productId: id,
+        type: 'ajustement',
+        quantity: stockDifference,
+        previousStock,
+        newStock,
+        reason: `Ajustement: ${reason}`,
+        notes: notes || null,
+        userId: 'Admin' // TODO: Get actual user from auth system
+      }
+    })
+
+    return updatedProduct
+  }
+
+  static async getProductsForInventory(filters: {
+    categoryId?: string
+    supplierId?: string
+    status?: string
+    search?: string
+    notWorkedOnHours?: number
+  } = {}) {
+    const { categoryId, supplierId, status, search, notWorkedOnHours = 24 } = filters
+
+    const where: any = {
+      isActive: true
+    }
+
+    if (categoryId) where.categoryId = categoryId
+    if (supplierId) where.supplierId = supplierId
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { sku: { contains: search } },
+        { barcode: { contains: search } }
+      ]
+    }
+
+    // Filter by inventory status
+    if (status === 'not_worked_on') {
+      const cutoffDate = new Date()
+      cutoffDate.setHours(cutoffDate.getHours() - notWorkedOnHours)
+      where.OR = [
+        { lastInventoryDate: null },
+        { lastInventoryDate: { lt: cutoffDate } }
+      ]
+    } else if (status === 'worked_on') {
+      const cutoffDate = new Date()
+      cutoffDate.setHours(cutoffDate.getHours() - notWorkedOnHours)
+      where.lastInventoryDate = { gte: cutoffDate }
+    } else if (status === 'ok') {
+      where.lastInventoryStatus = 'OK'
+    } else if (status === 'adjusted') {
+      where.lastInventoryStatus = 'ADJUSTED'
+    }
+
+    return await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        supplier: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  }
+
+  // Inventory Movements Methods
+  static async getInventoryMovements(filters: {
+    search?: string
+    type?: string
+    startDate?: string
+    endDate?: string
+    reason?: string
+    financialImpact?: 'positive' | 'negative'
+  } = {}) {
+    const { search, type, startDate, endDate, reason, financialImpact } = filters
+
+    const where: any = {}
+
+    if (type) where.type = type
+    if (reason) where.reason = { contains: reason }
+    if (startDate || endDate) {
+      where.createdAt = {}
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate)
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate)
+        endDateTime.setDate(endDateTime.getDate() + 1) // Include the end date
+        where.createdAt.lt = endDateTime
+      }
+    }
+
+    const movements = await prisma.inventoryMovement.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            price: true,
+            costPrice: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    // Calculate financial impact for each movement
+    let movementsWithImpact = movements.map(movement => {
+      let financialImpact = 0
+      
+      if (movement.type === 'vente') {
+        // For sales: positive impact (we gain profit from selling)
+        // The financial impact is the profit per unit * quantity sold
+        const profitPerUnit = (movement.product.price - movement.product.costPrice)
+        financialImpact = profitPerUnit * Math.abs(movement.quantity)
+      } else if (movement.type === 'ajustement') {
+        // For adjustments: calculate based on whether it's a gain or loss
+        if (movement.quantity > 0) {
+          // Stock increase: positive impact (we gain value)
+          financialImpact = movement.product.costPrice * movement.quantity
+        } else {
+          // Stock decrease: negative impact (we lose money due to missing inventory)
+          financialImpact = movement.product.costPrice * movement.quantity
+        }
+      } else if (movement.type === 'ravitaillement') {
+        // For replenishment: use stored financialImpact if available, otherwise calculate
+        if (movement.financialImpact !== null && movement.financialImpact !== undefined) {
+          financialImpact = movement.financialImpact
+        } else {
+          // Fallback calculation (without delivery cost)
+          financialImpact = -movement.product.costPrice * movement.quantity
+        }
+      }
+
+      return {
+        ...movement,
+        financialImpact: Math.round(financialImpact)
+      }
+    })
+
+    // Filter by financial impact if specified
+    if (financialImpact === 'positive') {
+      movementsWithImpact = movementsWithImpact.filter(movement => movement.financialImpact > 0)
+    } else if (financialImpact === 'negative') {
+      movementsWithImpact = movementsWithImpact.filter(movement => movement.financialImpact < 0)
+    }
+
+    return movementsWithImpact
+  }
+
+  // Replenishment Methods
+  static async getReplenishments(filters: {
+    search?: string
+    supplierId?: string
+    startDate?: string
+    endDate?: string
+    receiptNumber?: string
+  } = {}) {
+    const { search, supplierId, startDate, endDate, receiptNumber } = filters
+
+    console.log('🔍 Replenishment filters:', { search, supplierId, startDate, endDate, receiptNumber })
+
+    const where: any = {}
+
+    if (supplierId) where.supplierId = supplierId
+    if (receiptNumber) where.receiptNumber = { contains: receiptNumber }
+    if (startDate || endDate) {
+      where.createdAt = {}
+      if (startDate) {
+        // Start date: include from the beginning of the day (avoid timezone issues)
+        const [year, month, day] = startDate.split('-').map(Number)
+        const startDateTime = new Date(year, month - 1, day, 0, 0, 0, 0)
+        where.createdAt.gte = startDateTime
+        console.log('📅 Start date filter:', startDateTime.toISOString())
+      }
+      if (endDate) {
+        // End date: include until the end of the day (avoid timezone issues)
+        const [year, month, day] = endDate.split('-').map(Number)
+        const endDateTime = new Date(year, month - 1, day, 23, 59, 59, 999)
+        where.createdAt.lte = endDateTime
+        console.log('📅 End date filter:', endDateTime.toISOString())
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { product: { name: { contains: search } } },
+        { product: { sku: { contains: search } } },
+        { supplier: { name: { contains: search } } },
+        { receiptNumber: { contains: search } }
+      ]
+    }
+
+    return await prisma.replenishment.findMany({
+      where,
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            barcode: true
+          }
+        },
+        supplier: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+  }
+
+  static async createReplenishment(data: {
+    productId: string
+    supplierId?: string
+    quantity: number
+    unitPrice: number
+    deliveryCost: number
+    receiptNumber?: string
+    notes?: string
+    userId?: string
+  }) {
+    const totalPrice = (data.quantity * data.unitPrice) + data.deliveryCost
+
+    // Use transaction to create replenishment and update stock
+    return await prisma.$transaction(async (tx) => {
+      // Create the replenishment record
+      const replenishment = await tx.replenishment.create({
+        data: {
+          productId: data.productId,
+          supplierId: data.supplierId,
+          quantity: data.quantity,
+          unitPrice: data.unitPrice,
+          deliveryCost: data.deliveryCost,
+          totalPrice: totalPrice,
+          receiptNumber: data.receiptNumber,
+          notes: data.notes,
+          userId: data.userId
+        }
+      })
+
+      // Get current product stock
+      const product = await tx.product.findUnique({
+        where: { id: data.productId },
+        select: { stock: true, costPrice: true }
+      })
+
+      if (!product) {
+        throw new Error('Product not found')
+      }
+
+      const previousStock = product.stock
+      const newStock = previousStock + data.quantity
+
+      // Update product stock
+      await tx.product.update({
+        where: { id: data.productId },
+        data: { 
+          stock: newStock,
+          costPrice: data.unitPrice // Update cost price to latest purchase price
+        }
+      })
+
+      // Create inventory movement record
+      await tx.inventoryMovement.create({
+        data: {
+          productId: data.productId,
+          type: 'ravitaillement',
+          quantity: data.quantity,
+          previousStock: previousStock,
+          newStock: newStock,
+          reason: `Ravitaillement: ${data.receiptNumber || 'Sans reçu'}`,
+          reference: `Replenishment ${replenishment.id}`,
+          notes: data.notes,
+          userId: data.userId,
+          financialImpact: -replenishment.totalPrice // Use the totalPrice directly (negative because it's a cost)
+        }
+      })
+
+      return replenishment
+    })
+  }
+
+  static async createInventoryMovement(data: {
+    productId: string
+    type: string
+    quantity: number
+    previousStock: number
+    newStock: number
+    reason: string
+    reference?: string
+    notes?: string
+    userId?: string
+  }) {
+    return await prisma.inventoryMovement.create({
+      data: {
+        ...data,
+        userId: data.userId || 'Admin'
+      }
+    })
   }
 }
 

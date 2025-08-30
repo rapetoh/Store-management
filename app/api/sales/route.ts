@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
         await DatabaseService.updateStock(
           item.productId,
           newStock,
-          'Sale',
-          'out',
+          'Vente',
+          'vente',
           sale.id
         )
       }

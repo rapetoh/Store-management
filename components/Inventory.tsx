@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
 import { 
   Package, 
   TrendingUp, 
@@ -18,83 +19,127 @@ import {
   Clock,
   DollarSign,
   Users,
-  MapPin
+  MapPin,
+  Settings,
+  Check,
+  X
 } from 'lucide-react'
 
-interface StockMovement {
+interface Product {
   id: string
-  productId: string
-  productName: string
-  type: 'in' | 'out' | 'adjustment' | 'transfer'
-  quantity: number
-  previousStock: number
-  newStock: number
-  reason: string
-  date: string
-  userId: string
-  userName: string
+  name: string
+  sku?: string
+  barcode?: string
+  stock: number
+  minStock: number
+  price: number
+  costPrice: number
+  category?: {
+    id: string
+    name: string
+  }
+  supplier?: {
+    id: string
+    name: string
+  }
+  lastInventoryDate?: string
+  lastInventoryStatus?: 'OK' | 'ADJUSTED'
 }
 
-interface PurchaseOrder {
+interface Category {
   id: string
-  supplierId: string
-  supplierName: string
-  status: 'draft' | 'ordered' | 'shipped' | 'received' | 'cancelled'
-  orderDate: string
-  expectedDelivery: string
-  totalAmount: number
-  items: PurchaseOrderItem[]
+  name: string
 }
 
-interface PurchaseOrderItem {
-  productId: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  totalPrice: number
-}
-
-interface InventoryCount {
+interface Supplier {
   id: string
-  productId: string
-  productName: string
-  expectedQuantity: number
-  actualQuantity: number
-  difference: number
-  date: string
-  status: 'pending' | 'completed'
+  name: string
 }
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>([])
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
-  const [inventoryCounts, setInventoryCounts] = useState<InventoryCount[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedSupplier, setSelectedSupplier] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState('')
+  const [notWorkedOnHours, setNotWorkedOnHours] = useState(24)
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  
+  // Movements tab state
+  const [movements, setMovements] = useState<any[]>([])
+  const [movementsLoading, setMovementsLoading] = useState(false)
+  const [movementSearchTerm, setMovementSearchTerm] = useState('')
+  const [selectedMovementType, setSelectedMovementType] = useState('')
+  const [selectedStartDate, setSelectedStartDate] = useState('')
+  const [selectedEndDate, setSelectedEndDate] = useState('')
+  const [selectedMovementReason, setSelectedMovementReason] = useState('')
+  const [selectedFinancialImpact, setSelectedFinancialImpact] = useState('')
+
+  // Replenishment tab state
+  const [replenishments, setReplenishments] = useState<any[]>([])
+  const [replenishmentsLoading, setReplenishmentsLoading] = useState(false)
+  const [replenishmentSearchTerm, setReplenishmentSearchTerm] = useState('')
+  const [selectedReplenishmentSupplier, setSelectedReplenishmentSupplier] = useState('')
+  const [selectedReplenishmentStartDate, setSelectedReplenishmentStartDate] = useState('')
+  const [selectedReplenishmentEndDate, setSelectedReplenishmentEndDate] = useState('')
+  const [selectedReceiptNumber, setSelectedReceiptNumber] = useState('')
+  const [showReplenishmentModal, setShowReplenishmentModal] = useState(false)
+  const [replenishmentData, setReplenishmentData] = useState({
+    productId: '',
+    productName: '',
+    supplierId: '',
+    supplierName: '',
+    quantity: 0,
+    unitPrice: 0,
+    deliveryCost: 0,
+    receiptNumber: '',
+    notes: ''
+  })
+
+  // Autocomplete states
+  const [productSearchTerm, setProductSearchTerm] = useState('')
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('')
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false)
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false)
+  const [productSuggestions, setProductSuggestions] = useState<any[]>([])
+  const [supplierSuggestions, setSupplierSuggestions] = useState<any[]>([])
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  // Barcode scanner hook
+  const { scannedBarcode } = useBarcodeScanner()
   const [adjustmentData, setAdjustmentData] = useState({
     productId: '',
     productName: '',
     currentStock: 0,
     newStock: 0,
-    reason: ''
+    reason: '',
+    notes: ''
   })
 
   useEffect(() => {
     loadInventoryData()
-  }, [])
+  }, [searchTerm, selectedCategory, selectedSupplier, selectedStatus, notWorkedOnHours])
+
+  useEffect(() => {
+    if (activeTab === 'movements') {
+      loadMovements()
+    } else if (activeTab === 'replenishment') {
+      loadReplenishments()
+    }
+  }, [activeTab, movementSearchTerm, selectedMovementType, selectedStartDate, selectedEndDate, selectedMovementReason, selectedFinancialImpact, replenishmentSearchTerm, selectedReplenishmentSupplier, selectedReplenishmentStartDate, selectedReplenishmentEndDate, selectedReceiptNumber])
 
   const loadInventoryData = async () => {
     try {
       setIsLoading(true)
-      // Load stock movements, purchase orders, and inventory counts
-      // This will be implemented with actual API calls
       await Promise.all([
-        loadStockMovements(),
-        loadPurchaseOrders(),
-        loadInventoryCounts()
+        loadProducts(),
+        loadCategories(),
+        loadSuppliers()
       ])
     } catch (error) {
       console.error('Error loading inventory data:', error)
@@ -103,79 +148,88 @@ export default function Inventory() {
     }
   }
 
-  const loadStockMovements = async () => {
-    // TODO: Implement API call to load stock movements
-    const mockMovements: StockMovement[] = [
-      {
-        id: '1',
-        productId: '1',
-        productName: 'Chargeur USB',
-        type: 'in',
-        quantity: 50,
-        previousStock: 15,
-        newStock: 65,
-        reason: 'Ravitaillement',
-        date: '2025-08-24T10:00:00Z',
-        userId: '1',
-        userName: 'Admin'
-      },
-      {
-        id: '2',
-        productId: '2',
-        productName: 'Eau minérale 1L',
-        type: 'out',
-        quantity: 10,
-        previousStock: 97,
-        newStock: 87,
-        reason: 'Vente',
-        date: '2025-08-24T09:30:00Z',
-        userId: '1',
-        userName: 'Admin'
-      }
-    ]
-    setStockMovements(mockMovements)
+  const loadProducts = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (searchTerm) params.append('search', searchTerm)
+      if (selectedCategory) params.append('categoryId', selectedCategory)
+      if (selectedSupplier) params.append('supplierId', selectedSupplier)
+      if (selectedStatus) params.append('status', selectedStatus)
+      params.append('notWorkedOnHours', notWorkedOnHours.toString())
+
+      const response = await fetch(`/api/inventory/products?${params}`)
+      const data = await response.json()
+      setProducts(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error loading products:', error)
+      setProducts([])
+    }
   }
 
-  const loadPurchaseOrders = async () => {
-    // TODO: Implement API call to load purchase orders
-    const mockOrders: PurchaseOrder[] = [
-      {
-        id: '1',
-        supplierId: '1',
-        supplierName: 'Togo SARL',
-        status: 'ordered',
-        orderDate: '2025-08-20T10:00:00Z',
-        expectedDelivery: '2025-08-25T10:00:00Z',
-        totalAmount: 1500000,
-        items: [
-          {
-            productId: '1',
-            productName: 'Chargeur USB',
-            quantity: 100,
-            unitPrice: 120000,
-            totalPrice: 12000000
-          }
-        ]
-      }
-    ]
-    setPurchaseOrders(mockOrders)
+  const loadCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      const data = await response.json()
+      const categoriesData = data.categories || data || []
+      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+    } catch (error) {
+      console.error('Error loading categories:', error)
+      setCategories([])
+    }
   }
 
-  const loadInventoryCounts = async () => {
-    // TODO: Implement API call to load inventory counts
-    const mockCounts: InventoryCount[] = [
-      {
-        id: '1',
-        productId: '1',
-        productName: 'Chargeur USB',
-        expectedQuantity: 65,
-        actualQuantity: 63,
-        difference: -2,
-        date: '2025-08-24T08:00:00Z',
-        status: 'completed'
-      }
-    ]
-    setInventoryCounts(mockCounts)
+  const loadSuppliers = async () => {
+    try {
+      const response = await fetch('/api/suppliers')
+      const data = await response.json()
+      setSuppliers(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error loading suppliers:', error)
+      setSuppliers([])
+    }
+  }
+
+  const loadMovements = async () => {
+    try {
+      setMovementsLoading(true)
+      const params = new URLSearchParams()
+      if (movementSearchTerm) params.append('search', movementSearchTerm)
+      if (selectedMovementType) params.append('type', selectedMovementType)
+      if (selectedStartDate) params.append('startDate', selectedStartDate)
+      if (selectedEndDate) params.append('endDate', selectedEndDate)
+      if (selectedMovementReason) params.append('reason', selectedMovementReason)
+      if (selectedFinancialImpact) params.append('financialImpact', selectedFinancialImpact)
+
+      const response = await fetch(`/api/inventory/movements?${params}`)
+      const data = await response.json()
+      setMovements(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error loading movements:', error)
+      setMovements([])
+    } finally {
+      setMovementsLoading(false)
+    }
+  }
+
+  const loadReplenishments = async () => {
+    try {
+      setReplenishmentsLoading(true)
+      const params = new URLSearchParams()
+      if (replenishmentSearchTerm) params.append('search', replenishmentSearchTerm)
+      if (selectedReplenishmentSupplier) params.append('supplierId', selectedReplenishmentSupplier)
+      if (selectedReplenishmentStartDate) params.append('startDate', selectedReplenishmentStartDate)
+      if (selectedReplenishmentEndDate) params.append('endDate', selectedReplenishmentEndDate)
+      if (selectedReceiptNumber) params.append('receiptNumber', selectedReceiptNumber)
+
+      const response = await fetch(`/api/inventory/replenishments?${params}`)
+      const data = await response.json()
+      setReplenishments(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error loading replenishments:', error)
+      setReplenishments([])
+    } finally {
+      setReplenishmentsLoading(false)
+    }
   }
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
@@ -184,98 +238,289 @@ export default function Inventory() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800'
-      case 'ordered': return 'bg-blue-100 text-blue-800'
-      case 'shipped': return 'bg-yellow-100 text-yellow-800'
-      case 'received': return 'bg-green-100 text-green-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getMovementIcon = (type: string) => {
-    switch (type) {
-      case 'in': return <TrendingUp className="w-4 h-4 text-green-600" />
-      case 'out': return <TrendingDown className="w-4 h-4 text-red-600" />
-      case 'adjustment': return <AlertTriangle className="w-4 h-4 text-yellow-600" />
-      case 'transfer': return <Truck className="w-4 h-4 text-blue-600" />
-      default: return <Package className="w-4 h-4 text-gray-600" />
-    }
-  }
-
-  const openAdjustmentModal = (productId: string, productName: string, currentStock: number) => {
+  const openAdjustmentModal = (product: Product) => {
     setAdjustmentData({
-      productId,
-      productName,
-      currentStock,
-      newStock: currentStock,
-      reason: ''
+      productId: product.id,
+      productName: product.name,
+      currentStock: product.stock,
+      newStock: product.stock,
+      reason: '',
+      notes: ''
     })
     setShowAdjustmentModal(true)
   }
 
-  const logActivity = async (action: string, details: string, financialImpact?: number) => {
+  const openReplenishmentModal = () => {
+    setReplenishmentData({
+      productId: '',
+      productName: '',
+      supplierId: '',
+      supplierName: '',
+      quantity: 0,
+      unitPrice: 0,
+      deliveryCost: 0,
+      receiptNumber: '',
+      notes: ''
+    })
+    setProductSearchTerm('')
+    setSupplierSearchTerm('')
+    setShowProductSuggestions(false)
+    setShowSupplierSuggestions(false)
+    setProductSuggestions([])
+    setSupplierSuggestions([])
+    setShowReplenishmentModal(true)
+  }
+
+  // Autocomplete functions
+  const searchProducts = async (searchTerm: string) => {
+    if (searchTerm.length < 2) {
+      setProductSuggestions([])
+      setShowProductSuggestions(false)
+      return
+    }
+
     try {
-      await fetch('/api/logs', {
+      console.log('Searching products for:', searchTerm)
+      const response = await fetch(`/api/products?search=${encodeURIComponent(searchTerm)}&limit=10`)
+      const data = await response.json()
+      console.log('Products API response:', data)
+      const products = data.products || data || []
+      setProductSuggestions(Array.isArray(products) ? products : [])
+      setShowProductSuggestions(true)
+    } catch (error) {
+      console.error('Error searching products:', error)
+      setProductSuggestions([])
+    }
+  }
+
+  const handleProductSearchChange = (value: string) => {
+    setProductSearchTerm(value)
+    
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    
+    // Set new timeout for search
+    const timeout = setTimeout(() => {
+      searchProducts(value)
+    }, 300) // 300ms delay
+    
+    setSearchTimeout(timeout)
+  }
+
+  const searchSuppliers = async (searchTerm: string) => {
+    if (searchTerm.length < 2) {
+      setSupplierSuggestions([])
+      setShowSupplierSuggestions(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/suppliers?search=${encodeURIComponent(searchTerm)}`)
+      const data = await response.json()
+      const suppliers = Array.isArray(data) ? data : []
+      setSupplierSuggestions(suppliers)
+      setShowSupplierSuggestions(true)
+    } catch (error) {
+      console.error('Error searching suppliers:', error)
+      setSupplierSuggestions([])
+    }
+  }
+
+  const selectProduct = (product: any) => {
+    setReplenishmentData({
+      ...replenishmentData,
+      productId: product.id,
+      productName: product.name
+    })
+    setProductSearchTerm(product.name)
+    setShowProductSuggestions(false)
+  }
+
+  const selectSupplier = (supplier: any) => {
+    setReplenishmentData({
+      ...replenishmentData,
+      supplierId: supplier.id,
+      supplierName: supplier.name
+    })
+    setSupplierSearchTerm(supplier.name)
+    setShowSupplierSuggestions(false)
+  }
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (!target.closest('.autocomplete-container')) {
+        setShowProductSuggestions(false)
+        setShowSupplierSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout)
+      }
+    }
+  }, [searchTimeout])
+
+  // Handle barcode scanner input
+  useEffect(() => {
+    if (scannedBarcode && showReplenishmentModal) {
+      // Search for product by barcode
+      searchProductsByBarcode(scannedBarcode)
+    }
+  }, [scannedBarcode, showReplenishmentModal])
+
+  const searchProductsByBarcode = async (barcode: string) => {
+    try {
+      const response = await fetch(`/api/products?barcode=${encodeURIComponent(barcode)}`)
+      const data = await response.json()
+      if (Array.isArray(data) && data.length > 0) {
+        const product = data[0]
+        selectProduct(product)
+      } else {
+        // If no product found, set the barcode as search term
+        setProductSearchTerm(barcode)
+        searchProducts(barcode)
+      }
+    } catch (error) {
+      console.error('Error searching product by barcode:', error)
+    }
+  }
+
+  const handleReplenishment = async () => {
+    try {
+      const response = await fetch('/api/inventory/replenishments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action,
-          details,
-          user: 'Admin', // TODO: Get actual user from auth system
-          financialImpact: financialImpact || null,
-          category: 'Inventaire'
+          productId: replenishmentData.productId,
+          supplierId: replenishmentData.supplierId || undefined,
+          quantity: replenishmentData.quantity,
+          unitPrice: replenishmentData.unitPrice,
+          deliveryCost: replenishmentData.deliveryCost,
+          receiptNumber: replenishmentData.receiptNumber,
+          notes: replenishmentData.notes
         }),
       })
+
+      if (response.ok) {
+        showToast('success', 'Ravitaillement créé', 'Le ravitaillement a été enregistré avec succès')
+        setShowReplenishmentModal(false)
+        loadReplenishments() // Refresh the list
+        loadProducts() // Refresh product stock
+      } else {
+        showToast('error', 'Erreur', 'Impossible de créer le ravitaillement')
+      }
     } catch (error) {
-      console.error('Error logging activity:', error)
+      console.error('Error creating replenishment:', error)
+      showToast('error', 'Erreur', 'Une erreur est survenue')
+    }
+  }
+
+  const handleMarkAsOK = async (productId: string) => {
+    try {
+      const response = await fetch('/api/inventory/mark-ok', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productId }),
+      })
+
+      if (response.ok) {
+        showToast('success', 'Produit marqué comme OK', 'Le produit a été marqué comme inventorié avec succès')
+        loadProducts() // Refresh the list
+      } else {
+        showToast('error', 'Erreur', 'Impossible de marquer le produit comme OK')
+      }
+    } catch (error) {
+      console.error('Error marking product as OK:', error)
+      showToast('error', 'Erreur', 'Une erreur est survenue')
     }
   }
 
   const handleAdjustment = async () => {
     try {
-      const difference = adjustmentData.newStock - adjustmentData.currentStock
-      const financialImpact = difference * 150000 // Assuming cost price of 150,000 FCFA
-      
-      // Log the adjustment activity
-      await logActivity(
-        'adjustment',
-        `Ajustement ${adjustmentData.productName}: ${adjustmentData.currentStock} → ${adjustmentData.newStock} (${difference > 0 ? '+' : ''}${difference}) - ${adjustmentData.reason}`,
-        financialImpact
-      )
-      
-      // TODO: Implement API call to save adjustment
-      console.log('Adjustment:', {
-        productId: adjustmentData.productId,
-        productName: adjustmentData.productName,
-        previousStock: adjustmentData.currentStock,
-        newStock: adjustmentData.newStock,
-        difference,
-        reason: adjustmentData.reason,
-        financialImpact
+      const response = await fetch('/api/inventory/adjust', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: adjustmentData.productId,
+          newStock: adjustmentData.newStock,
+          reason: adjustmentData.reason,
+          notes: adjustmentData.notes
+        }),
       })
-      
-      setShowAdjustmentModal(false)
-      showToast('success', 'Ajustement effectué', `Stock ajusté de ${adjustmentData.currentStock} à ${adjustmentData.newStock}`)
-      
-      // Reload data
-      await loadInventoryData()
+
+      if (response.ok) {
+        showToast('success', 'Stock ajusté', 'Le stock a été ajusté avec succès')
+        setShowAdjustmentModal(false)
+        loadProducts() // Refresh the list
+      } else {
+        showToast('error', 'Erreur', 'Impossible d\'ajuster le stock')
+      }
     } catch (error) {
-      console.error('Error making adjustment:', error)
-      showToast('error', 'Erreur', 'Erreur lors de l\'ajustement')
+      console.error('Error adjusting stock:', error)
+      showToast('error', 'Erreur', 'Une erreur est survenue')
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Chargement de l'inventaire...</div>
-      </div>
-    )
+  const getInventoryStatus = (product: Product) => {
+    if (!product.lastInventoryDate) {
+      return { text: 'Non inventorié', color: 'bg-red-100 text-red-800' }
+    }
+
+    const lastInventory = new Date(product.lastInventoryDate)
+    const hoursSinceInventory = (Date.now() - lastInventory.getTime()) / (1000 * 60 * 60)
+
+    if (hoursSinceInventory <= notWorkedOnHours) {
+      return { 
+        text: product.lastInventoryStatus === 'OK' ? 'OK' : 'Ajusté', 
+        color: product.lastInventoryStatus === 'OK' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' 
+      }
+    } else {
+      return { text: 'À réinventorier', color: 'bg-yellow-100 text-yellow-800' }
+    }
+  }
+
+  const getStockStatus = (product: Product) => {
+    if (product.stock <= 0) {
+      return { text: 'Rupture', color: 'bg-red-100 text-red-800' }
+    } else if (product.stock <= product.minStock) {
+      return { text: 'Stock faible', color: 'bg-yellow-100 text-yellow-800' }
+    } else {
+      return { text: 'En stock', color: 'bg-green-100 text-green-800' }
+    }
+  }
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Jamais'
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const calculateStockValue = (product: Product) => {
+    return product.stock * product.costPrice
   }
 
   return (
@@ -286,12 +531,25 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold text-gray-900">Inventaire</h1>
           <p className="text-gray-600">Gestion complète de votre inventaire et des mouvements de stock</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2">
+        <div className="flex space-x-3">
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
+          >
+            <Settings className="w-4 h-4" />
+            <span>Paramètres</span>
+          </button>
+          <button 
+            onClick={() => {/* TODO: Export functionality */}}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
+          >
             <Download className="w-4 h-4" />
             <span>Exporter</span>
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2">
+          <button 
+            onClick={() => {/* TODO: New operation */}}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Nouvelle opération</span>
           </button>
@@ -301,13 +559,13 @@ export default function Inventory() {
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
-                     {[
-             { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
-             { id: 'movements', label: 'Mouvements', icon: TrendingUp },
-             { id: 'purchase-orders', label: 'Ravitaillement', icon: Truck },
-             { id: 'counts', label: 'Inventaires', icon: CheckCircle },
-             { id: 'alerts', label: 'Alertes', icon: AlertTriangle }
-           ].map((tab) => (
+          {[
+            { id: 'overview', name: 'Vue d\'ensemble', icon: BarChart3 },
+            { id: 'movements', name: 'Mouvements', icon: TrendingUp },
+            { id: 'replenishment', name: 'Ravitaillement', icon: Truck },
+            { id: 'counts', name: 'Inventaires', icon: CheckCircle },
+            { id: 'alerts', name: 'Alertes', icon: AlertTriangle },
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -318,502 +576,830 @@ export default function Inventory() {
               }`}
             >
               <tab.icon className="w-4 h-4" />
-              <span>{tab.label}</span>
+              <span>{tab.name}</span>
             </button>
           ))}
         </nav>
       </div>
 
       {/* Content */}
-      <div className="bg-white rounded-lg shadow p-6">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Liste des produits - Inventaire physique</h3>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Rechercher un produit..."
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+      {activeTab === 'overview' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Liste des produits - Inventaire physique</h3>
+          </div>
+          
+          {/* Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-            </div>
 
-            {/* Products Table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock système
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock minimum
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Valeur stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Statut
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Package className="w-5 h-5 text-blue-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">Chargeur USB</div>
-                          <div className="text-sm text-gray-500">CHARGE-001112</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">65</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">3</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">9,750,000 FCFA</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                        En stock
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                             <button 
-                         onClick={() => openAdjustmentModal('1', 'Chargeur USB', 65)}
-                         className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100"
-                       >
-                         Ajuster
-                       </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                            <Package className="w-5 h-5 text-red-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">Produit pas cher</div>
-                          <div className="text-sm text-gray-500">ALIM-002</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">3</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">15</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">300 FCFA</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                        Stock faible
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                             <button 
-                         onClick={() => openAdjustmentModal('2', 'Produit pas cher', 3)}
-                         className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md hover:bg-blue-100"
-                       >
-                         Ajuster
-                       </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {/* Category Filter */}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Toutes les catégories</option>
+                {Array.isArray(categories) && categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Supplier Filter */}
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les fournisseurs</option>
+                {Array.isArray(suppliers) && suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="not_worked_on">Non travaillé</option>
+                <option value="worked_on">Travaillé</option>
+                <option value="ok">Marqué OK</option>
+                <option value="adjusted">Ajusté</option>
+              </select>
+
+              {/* Clear Filters */}
+              <button
+                onClick={() => {
+                  setSearchTerm('')
+                  setSelectedCategory('')
+                  setSelectedSupplier('')
+                  setSelectedStatus('')
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Effacer les filtres
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Movements Tab */}
-        {activeTab === 'movements' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Mouvements de stock</h3>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Rechercher..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">Tous les types</option>
-                  <option value="in">Entrées</option>
-                  <option value="out">Sorties</option>
-                  <option value="adjustment">Ajustements</option>
-                  <option value="transfer">Transferts</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+          {/* Products Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRODUIT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    STOCK SYSTÈME
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    STOCK MINIMUM
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    VALEUR STOCK
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    STATUT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DERNIÈRE INVENTAIRE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {isLoading ? (
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantité
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock final
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Raison
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                      Chargement...
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {stockMovements.map((movement) => (
+                ) : (Array.isArray(products) && products.length === 0) ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                      Aucun produit trouvé
+                    </td>
+                  </tr>
+                ) : (Array.isArray(products) && products.map((product) => {
+                  const inventoryStatus = getInventoryStatus(product)
+                  const stockStatus = getStockStatus(product)
+                  
+                  return (
+                    <tr key={product.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Package className="h-6 w-6 text-blue-600" />
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-500">{product.sku || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {product.stock}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {product.minStock}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {calculateStockValue(product).toLocaleString('fr-FR')} FCFA
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${stockStatus.color}`}>
+                          {stockStatus.text}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatDate(product.lastInventoryDate)}</div>
+                        <div className="text-sm text-gray-500">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${inventoryStatus.color}`}>
+                            {inventoryStatus.text}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleMarkAsOK(product.id)}
+                            className="text-green-600 hover:text-green-900 flex items-center space-x-1"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>OK</span>
+                          </button>
+                          <button
+                            onClick={() => openAdjustmentModal(product)}
+                            className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                          >
+                            <TrendingUp className="w-4 h-4" />
+                            <span>Ajuster</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Movements Tab Content */}
+      {activeTab === 'movements' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Mouvements de stock</h3>
+            <p className="text-sm text-gray-600">Historique des entrées, sorties et ajustements de stock</p>
+          </div>
+          
+          {/* Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+              {/* Product Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit..."
+                  value={movementSearchTerm}
+                  onChange={(e) => setMovementSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Movement Type Filter */}
+              <select 
+                value={selectedMovementType}
+                onChange={(e) => setSelectedMovementType(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les types</option>
+                <option value="vente">Ventes</option>
+                <option value="ravitaillement">Ravitaillement/Achat</option>
+                <option value="ajustement">Ajustement/Inventaire</option>
+              </select>
+
+              {/* Reason Filter */}
+              <input
+                type="text"
+                placeholder="Filtrer par raison..."
+                value={selectedMovementReason}
+                onChange={(e) => setSelectedMovementReason(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* Financial Impact Filter */}
+              <select 
+                value={selectedFinancialImpact}
+                onChange={(e) => setSelectedFinancialImpact(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les impacts</option>
+                <option value="positive">Impact positif</option>
+                <option value="negative">Impact négatif</option>
+              </select>
+
+              {/* Start Date */}
+              <input
+                type="date"
+                value={selectedStartDate}
+                onChange={(e) => setSelectedStartDate(e.target.value)}
+                placeholder="Date de début"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* End Date */}
+              <input
+                type="date"
+                value={selectedEndDate}
+                onChange={(e) => setSelectedEndDate(e.target.value)}
+                placeholder="Date de fin"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* Clear Filters */}
+              <button 
+                onClick={() => {
+                  setMovementSearchTerm('')
+                  setSelectedMovementType('')
+                  setSelectedStartDate('')
+                  setSelectedEndDate('')
+                  setSelectedMovementReason('')
+                  setSelectedFinancialImpact('')
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Effacer les filtres
+              </button>
+            </div>
+          </div>
+
+          {/* Movements Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRODUIT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TYPE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    QUANTITÉ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IMPACT FINANCIER
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    RAISON
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    UTILISATEUR
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {movementsLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                      Chargement...
+                    </td>
+                  </tr>
+                ) : movements.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                      Aucun mouvement trouvé
+                    </td>
+                  </tr>
+                ) : (
+                  movements.map((movement) => (
                     <tr key={movement.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{movement.productName}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(movement.createdAt).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          {getMovementIcon(movement.type)}
-                          <span className="text-sm text-gray-900 capitalize">{movement.type}</span>
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">{movement.product?.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{movement.product?.sku || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${
-                          movement.type === 'in' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {movement.type === 'in' ? '+' : '-'}{movement.quantity}
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                           movement.type === 'vente' ? 'bg-red-100 text-red-800' :
+                           movement.type === 'ajustement' ? 'bg-blue-100 text-blue-800' :
+                           movement.type === 'ravitaillement' ? 'bg-green-100 text-green-800' :
+                           'bg-gray-100 text-gray-800'
+                         }`}>
+                           {movement.type === 'vente' ? 'Ventes' :
+                            movement.type === 'ajustement' ? 'Ajustement/Inventaire' :
+                            movement.type === 'ravitaillement' ? 'Ravitaillement/Achat' : movement.type}
+                         </span>
+                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span className={movement.quantity > 0 ? 'text-green-600' : 'text-red-600'}>
+                          {movement.quantity > 0 ? '+' : ''}{movement.quantity}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {movement.newStock}
+                        <span className={movement.financialImpact > 0 ? 'text-green-600' : movement.financialImpact < 0 ? 'text-red-600' : 'text-gray-600'}>
+                          {movement.financialImpact > 0 ? '+' : ''}{movement.financialImpact?.toLocaleString('fr-FR') || '0'} FCFA
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {movement.reason}
+                        {movement.reason || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(movement.date).toLocaleDateString('fr-FR')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {movement.userId || 'Système'}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Purchase Orders Tab */}
-        {activeTab === 'purchase-orders' && (
-          <div className="space-y-6">
+      {/* Replenishment Tab Content */}
+      {activeTab === 'replenishment' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Commandes fournisseurs</h3>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Ravitaillements et Achats</h3>
+                <p className="text-sm text-gray-600">Historique des achats et ravitaillements de stock</p>
+              </div>
+              <button
+                onClick={openReplenishmentModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
                 <Plus className="w-4 h-4" />
-                <span>Nouvelle commande</span>
+                <span>Nouveau Ravitaillement</span>
               </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {purchaseOrders.map((order) => (
-                <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{order.supplierName}</h4>
-                      <p className="text-sm text-gray-600">Commande #{order.id}</p>
-                    </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Date de commande:</span>
-                      <span className="text-gray-900">{new Date(order.orderDate).toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Livraison prévue:</span>
-                      <span className="text-gray-900">{new Date(order.expectedDelivery).toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Montant total:</span>
-                      <span className="font-medium text-gray-900">{order.totalAmount.toLocaleString('fr-FR')} FCFA</span>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-200 pt-4">
-                    <h5 className="text-sm font-medium text-gray-900 mb-2">Articles:</h5>
-                    <div className="space-y-1">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span className="text-gray-600">{item.productName}</span>
-                          <span className="text-gray-900">{item.quantity} × {item.unitPrice.toLocaleString('fr-FR')} FCFA</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
+          
+          {/* Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={replenishmentSearchTerm}
+                  onChange={(e) => setReplenishmentSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
-        {/* Inventory Counts Tab */}
-        {activeTab === 'counts' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Inventaires physiques</h3>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>Nouvel inventaire</span>
+              {/* Supplier Filter */}
+              <select 
+                value={selectedReplenishmentSupplier}
+                onChange={(e) => setSelectedReplenishmentSupplier(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les fournisseurs</option>
+                {Array.isArray(suppliers) && suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Receipt Number Filter */}
+              <input
+                type="text"
+                placeholder="Numéro de reçu..."
+                value={selectedReceiptNumber}
+                onChange={(e) => setSelectedReceiptNumber(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* Start Date */}
+              <input
+                type="date"
+                value={selectedReplenishmentStartDate}
+                onChange={(e) => setSelectedReplenishmentStartDate(e.target.value)}
+                placeholder="Date de début"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* End Date */}
+              <input
+                type="date"
+                value={selectedReplenishmentEndDate}
+                onChange={(e) => setSelectedReplenishmentEndDate(e.target.value)}
+                placeholder="Date de fin"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* Clear Filters */}
+              <button 
+                onClick={() => {
+                  setReplenishmentSearchTerm('')
+                  setSelectedReplenishmentSupplier('')
+                  setSelectedReplenishmentStartDate('')
+                  setSelectedReplenishmentEndDate('')
+                  setSelectedReceiptNumber('')
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Effacer les filtres
               </button>
             </div>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+          {/* Replenishments Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRODUIT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    FOURNISSEUR
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    QUANTITÉ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRIX UNITAIRE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    FRAIS DE LIVRAISON
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRIX TOTAL
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    N° REÇU
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {replenishmentsLoading ? (
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantité attendue
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantité réelle
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Différence
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Statut
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Chargement...
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {inventoryCounts.map((count) => (
-                    <tr key={count.id} className="hover:bg-gray-50">
+                ) : replenishments.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Aucun ravitaillement trouvé
+                    </td>
+                  </tr>
+                ) : (
+                  replenishments.map((replenishment) => (
+                    <tr key={replenishment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(replenishment.createdAt).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{count.productName}</div>
+                        <div className="text-sm font-medium text-gray-900">{replenishment.product?.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{replenishment.product?.sku || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {count.expectedQuantity}
+                        {replenishment.supplier?.name || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {count.actualQuantity}
+                        {replenishment.quantity}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${
-                          count.difference === 0 ? 'text-green-600' : 
-                          count.difference > 0 ? 'text-blue-600' : 'text-red-600'
-                        }`}>
-                          {count.difference > 0 ? '+' : ''}{count.difference}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {replenishment.unitPrice.toLocaleString('fr-FR')} FCFA
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          count.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {count.status === 'completed' ? 'Terminé' : 'En cours'}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {replenishment.deliveryCost.toLocaleString('fr-FR')} FCFA
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(count.date).toLocaleDateString('fr-FR')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {replenishment.totalPrice.toLocaleString('fr-FR')} FCFA
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {replenishment.receiptNumber || 'N/A'}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Alerts Tab */}
-        {activeTab === 'alerts' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900">Alertes d'inventaire</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Low Stock Alerts */}
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
-                  <h4 className="text-lg font-medium text-red-900">Stock faible</h4>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">Produit pas cher</p>
-                      <p className="text-sm text-gray-600">Stock: 3 (Min: 15)</p>
-                    </div>
-                    <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">
-                      Commander
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">Coussin tesla</p>
-                      <p className="text-sm text-gray-600">Stock: 2 (Min: 2)</p>
-                    </div>
-                    <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700">
-                      Commander
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Expiring Products */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Clock className="w-6 h-6 text-yellow-600" />
-                  <h4 className="text-lg font-medium text-yellow-900">Produits expirant</h4>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">Pain de mie</p>
-                      <p className="text-sm text-gray-600">Expire dans 2 jours</p>
-                    </div>
-                    <button className="px-3 py-1 bg-yellow-600 text-white text-sm rounded-md hover:bg-yellow-700">
-                      Voir
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-                 )}
-      </div>
+      {/* Other tabs content */}
+      {activeTab !== 'overview' && activeTab !== 'movements' && activeTab !== 'replenishment' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500">Contenu pour l'onglet {activeTab} - À implémenter</p>
+        </div>
+      )}
 
       {/* Adjustment Modal */}
       {showAdjustmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900">Ajustement de stock</h3>
-            </div>
-            <div className="p-6 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Produit</label>
-                <input
-                  type="text"
-                  value={adjustmentData.productName}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock actuel (système)</label>
-                <input
-                  type="number"
-                  value={adjustmentData.currentStock}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau stock (physique) *</label>
-                <input
-                  type="number"
-                  value={adjustmentData.newStock}
-                  onChange={(e) => setAdjustmentData(prev => ({ ...prev, newStock: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Différence</label>
-                <div className={`w-full px-3 py-2 border rounded-md ${
-                  adjustmentData.newStock - adjustmentData.currentStock > 0 
-                    ? 'border-green-300 bg-green-50 text-green-700' 
-                    : adjustmentData.newStock - adjustmentData.currentStock < 0 
-                    ? 'border-red-300 bg-red-50 text-red-700'
-                    : 'border-gray-300 bg-gray-50 text-gray-700'
-                }`}>
-                  {adjustmentData.newStock - adjustmentData.currentStock > 0 ? '+' : ''}
-                  {adjustmentData.newStock - adjustmentData.currentStock}
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Ajuster le stock</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Produit</label>
+                  <p className="text-sm text-gray-900">{adjustmentData.productName}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Stock actuel</label>
+                  <p className="text-sm text-gray-900">{adjustmentData.currentStock}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nouveau stock</label>
+                  <input
+                    type="number"
+                    value={adjustmentData.newStock}
+                    onChange={(e) => setAdjustmentData({...adjustmentData, newStock: parseInt(e.target.value) || 0})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Raison *</label>
+                  <input
+                    type="text"
+                    value={adjustmentData.reason}
+                    onChange={(e) => setAdjustmentData({...adjustmentData, reason: e.target.value})}
+                    placeholder="Raison de l'ajustement"
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Notes</label>
+                  <textarea
+                    value={adjustmentData.notes}
+                    onChange={(e) => setAdjustmentData({...adjustmentData, notes: e.target.value})}
+                    placeholder="Notes supplémentaires"
+                    rows={3}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Raison de l'ajustement *</label>
-                <textarea
-                  value={adjustmentData.reason}
-                  onChange={(e) => setAdjustmentData(prev => ({ ...prev, reason: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Ex: Inventaire physique, Perte, Vol, Erreur de saisie..."
-                  required
-                />
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowAdjustmentModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAdjustment}
+                  disabled={!adjustmentData.reason}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ajuster
+                </button>
               </div>
-              {adjustmentData.reason && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">Impact financier estimé:</h4>
-                  <p className={`text-lg font-bold ${
-                    adjustmentData.newStock - adjustmentData.currentStock > 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {adjustmentData.newStock - adjustmentData.currentStock > 0 ? '+' : ''}
-                    {((adjustmentData.newStock - adjustmentData.currentStock) * 150000).toLocaleString('fr-FR')} FCFA
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replenishment Modal */}
+      {showReplenishmentModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-xl max-h-[85vh] overflow-y-auto my-auto">
+            <div className="p-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Nouveau Ravitaillement</h3>
+                <div className="space-y-4">
+                  {/* Product Selection */}
+                  <div className="relative autocomplete-container">
+                    <label className="block text-sm font-medium text-gray-700">Produit *</label>
+                    <input
+                      type="text"
+                      value={productSearchTerm}
+                      onChange={(e) => handleProductSearchChange(e.target.value)}
+                      placeholder="Rechercher un produit par nom, SKU ou code-barres... (ou scanner)"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {showProductSuggestions && productSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {productSuggestions.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => selectProduct(product)}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-500">
+                              SKU: {product.sku || 'N/A'} | Stock: {product.stock} | Prix: {product.price?.toLocaleString('fr-FR')} FCFA
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {replenishmentData.productId && (
+                      <div className="mt-1 text-sm text-green-600">
+                        ✓ Produit sélectionné: {replenishmentData.productName}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Supplier Selection */}
+                  <div className="relative autocomplete-container">
+                    <label className="block text-sm font-medium text-gray-700">Fournisseur</label>
+                    <input
+                      type="text"
+                      value={supplierSearchTerm}
+                      onChange={(e) => {
+                        setSupplierSearchTerm(e.target.value)
+                        searchSuppliers(e.target.value)
+                      }}
+                      placeholder="Rechercher un fournisseur par nom..."
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {showSupplierSuggestions && supplierSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {supplierSuggestions.map((supplier) => (
+                          <div
+                            key={supplier.id}
+                            onClick={() => selectSupplier(supplier)}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{supplier.name}</div>
+                            {supplier.email && (
+                              <div className="text-sm text-gray-500">{supplier.email}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {replenishmentData.supplierId && (
+                      <div className="mt-1 text-sm text-green-600">
+                        ✓ Fournisseur sélectionné: {replenishmentData.supplierName}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quantity */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Quantité *</label>
+                    <input
+                      type="number"
+                      value={replenishmentData.quantity}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, quantity: parseInt(e.target.value) || 0})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Unit Price */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Prix unitaire (FCFA) *</label>
+                    <input
+                      type="number"
+                      value={replenishmentData.unitPrice}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, unitPrice: parseFloat(e.target.value) || 0})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {/* Delivery Cost */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Frais de livraison (FCFA)</label>
+                    <input
+                      type="number"
+                      value={replenishmentData.deliveryCost}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, deliveryCost: parseFloat(e.target.value) || 0})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {/* Receipt Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Numéro de reçu</label>
+                    <input
+                      type="text"
+                      value={replenishmentData.receiptNumber}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, receiptNumber: e.target.value})}
+                      placeholder="Numéro de reçu ou facture"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Notes</label>
+                    <textarea
+                      value={replenishmentData.notes}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, notes: e.target.value})}
+                      placeholder="Notes supplémentaires"
+                      rows={3}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Total Price Display */}
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <div className="text-sm font-medium text-gray-700">
+                      Prix total: {(replenishmentData.quantity * replenishmentData.unitPrice + replenishmentData.deliveryCost).toLocaleString('fr-FR')} FCFA
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowReplenishmentModal(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleReplenishment}
+                    disabled={!replenishmentData.productId || !replenishmentData.quantity || !replenishmentData.unitPrice}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Créer le ravitaillement
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Paramètres d'inventaire</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Heures pour considérer un produit comme "travaillé"
+                  </label>
+                  <input
+                    type="number"
+                    value={notWorkedOnHours}
+                    onChange={(e) => setNotWorkedOnHours(parseInt(e.target.value) || 24)}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Un produit est considéré comme "travaillé" s'il a été inventorié dans les dernières {notWorkedOnHours} heures
                   </p>
-                  <p className="text-xs text-blue-600 mt-1">Basé sur le prix de revient estimé</p>
                 </div>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 flex-shrink-0">
-              <button
-                onClick={() => setShowAdjustmentModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleAdjustment}
-                disabled={!adjustmentData.reason.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Appliquer l'ajustement
-              </button>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
           </div>
         </div>

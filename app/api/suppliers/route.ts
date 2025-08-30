@@ -4,7 +4,13 @@ import DatabaseService from '@/lib/database'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
+    const search = searchParams.get('search')
     const name = searchParams.get('name')
+    
+    if (search) {
+      const suppliers = await DatabaseService.searchSuppliers(search)
+      return NextResponse.json(suppliers)
+    }
     
     if (name) {
       const supplier = await DatabaseService.getSupplierByName(name)
@@ -12,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
     
     const suppliers = await DatabaseService.getAllSuppliers()
-    return NextResponse.json({ suppliers })
+    return NextResponse.json(suppliers)
   } catch (error) {
     console.error('Error fetching suppliers:', error)
     return NextResponse.json(

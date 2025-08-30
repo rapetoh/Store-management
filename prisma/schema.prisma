@@ -54,6 +54,7 @@ model Supplier {
   
   // Relations
   products    Product[]
+  replenishments Replenishment[]
   
   @@index([name])
   @@index([email])
@@ -73,6 +74,8 @@ model Product {
   sku         String?   @unique
   image       String?
   isActive    Boolean   @default(true)
+  lastInventoryDate DateTime?
+  lastInventoryStatus String? // "OK" or "ADJUSTED"
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
@@ -85,6 +88,7 @@ model Product {
   
   saleItems   SaleItem[]
   movements   InventoryMovement[]
+  replenishments Replenishment[]
   
   @@index([name])
   @@index([barcode])
@@ -176,11 +180,13 @@ model InventoryMovement {
   reference   String?
   notes       String?
   userId      String?
+  financialImpact Float? // Impact financier du mouvement
   createdAt   DateTime  @default(now())
   
   @@index([productId])
   @@index([type])
   @@index([createdAt])
+  @@index([financialImpact])
 }
 
 // Promo codes table
@@ -253,4 +259,27 @@ model ActivityLog {
   @@index([category])
   @@index([timestamp])
   @@index([financialImpact])
+}
+
+// Replenishment table for recording purchases/restocking
+model Replenishment {
+  id              String    @id @default(cuid())
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  quantity        Int
+  unitPrice       Float
+  deliveryCost    Float     @default(0)
+  totalPrice      Float
+  receiptNumber   String?
+  notes           String?
+  userId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([productId])
+  @@index([supplierId])
+  @@index([createdAt])
+  @@index([receiptNumber])
 }
