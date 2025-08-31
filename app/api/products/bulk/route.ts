@@ -136,20 +136,49 @@ export async function POST(request: NextRequest) {
           } = productData
 
           // Validate required fields
-          if (!name || price === undefined) {
-            errors.push(`Produit "${name || 'Sans nom'}": Nom et prix requis`)
+          if (!name || price === undefined || !barcode || stock === undefined) {
+            const missingFields = []
+            if (!name) missingFields.push('nom')
+            if (price === undefined) missingFields.push('prix')
+            if (!barcode) missingFields.push('code-barres')
+            if (stock === undefined) missingFields.push('stock')
+            errors.push(`Produit "${name || 'Sans nom'}": Champs requis manquants: ${missingFields.join(', ')}`)
             continue
           }
 
-          // Check for existing product
-          const existingProduct = await prisma.product.findFirst({
-            where: {
-              OR: [
-                { barcode: barcode || undefined },
-                { sku: sku || undefined },
-                { name: name }
-              ].filter(Boolean)
+          // Handle category (create if doesn't exist, fallback to "Other" if empty/invalid)
+          let categoryId = null
+          let categoryName = category?.trim()
+          
+          if (categoryName && categoryName.length > 0) {
+            // Try to find or create the specified category
+            let existingCategory = await prisma.category.findFirst({
+              where: { name: categoryName }
+            })
+            
+            if (!existingCategory) {
+              existingCategory = await prisma.category.create({
+                data: { name: categoryName }
+              })
             }
+            categoryId = existingCategory.id
+          } else {
+            // Fallback to "Other" category
+            let otherCategory = await prisma.category.findFirst({
+              where: { name: 'Other' }
+            })
+            
+            if (!otherCategory) {
+              otherCategory = await prisma.category.create({
+                data: { name: 'Other' }
+              })
+            }
+            categoryId = otherCategory.id
+          }
+
+          // Check for existing product (using only barcode for duplicate detection)
+          const existingProduct = await prisma.product.findFirst({
+            where: { barcode: barcode }
           })
 
           if (existingProduct) {
@@ -169,6 +198,7 @@ export async function POST(request: NextRequest) {
                   minStock: parseInt(minStock),
                   barcode: barcode || null,
                   sku: sku || null,
+                  categoryId,
                   image: image || null,
                   isActive
                 }
@@ -179,7 +209,7 @@ export async function POST(request: NextRequest) {
               continue
             }
           } else {
-            // Create new product
+            // Create new product (always active by default)
             await prisma.product.create({
               data: {
                 name,
@@ -190,8 +220,9 @@ export async function POST(request: NextRequest) {
                 minStock: parseInt(minStock),
                 barcode: barcode || null,
                 sku: sku || null,
+                categoryId,
                 image: image || null,
-                isActive
+                isActive: true // Force active status for imported products
               }
             })
             imported++

@@ -89,6 +89,7 @@ model Product {
   saleItems   SaleItem[]
   movements   InventoryMovement[]
   replenishments Replenishment[]
+  notifications Notification[]
   
   @@index([name])
   @@index([barcode])
@@ -273,6 +274,7 @@ model Replenishment {
   deliveryCost    Float     @default(0)
   totalPrice      Float
   receiptNumber   String?
+  expirationDate  DateTime? // Date de péremption du lot acheté
   notes           String?
   userId          String?
   createdAt       DateTime  @default(now())
@@ -282,4 +284,26 @@ model Replenishment {
   @@index([supplierId])
   @@index([createdAt])
   @@index([receiptNumber])
+  @@index([expirationDate])
+}
+
+// Notifications table for real-time stock alerts and system notifications
+model Notification {
+  id              String    @id @default(cuid())
+  type            String    // 'stock_low', 'stock_critical', 'stock_out', 'sale', 'replenishment', 'system'
+  title           String
+  message         String
+  isRead          Boolean   @default(false)
+  priority        String    @default("normal") // 'low', 'normal', 'high', 'critical'
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  metadata        String?   // JSON string for additional data
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([type])
+  @@index([isRead])
+  @@index([priority])
+  @@index([productId])
+  @@index([createdAt])
 }

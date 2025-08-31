@@ -37,19 +37,20 @@ export async function GET(request: NextRequest) {
       where.categoryId = categoryId
     }
     
+    // By default, only show active products unless explicitly requested
     if (isActive !== null && isActive !== undefined && isActive !== '') {
       where.isActive = isActive === 'true'
+    } else {
+      // Default to active products only
+      where.isActive = true
     }
-    
-    // Note: lowStock filter temporarily disabled due to Prisma syntax issue
-    // TODO: Implement proper low stock filtering
     
     if (outOfStock) {
       where.stock = 0
     }
     
     // Get products with pagination
-    const [products, totalCount] = await Promise.all([
+    const [allProducts, totalCount] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
@@ -57,6 +58,14 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true
+            }
+          },
+          supplier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true
             }
           },
           taxRate: {
@@ -69,15 +78,27 @@ export async function GET(request: NextRequest) {
         },
         orderBy: [
           { name: 'asc' }
-        ],
-        skip,
-        take: limit
+        ]
       }),
       prisma.product.count({ where })
     ])
+
+    // Apply low stock filter after fetching
+    let filteredProducts = allProducts
+    if (lowStock) {
+      filteredProducts = allProducts.filter(product => 
+        product.stock > 0 && product.stock <= product.minStock
+      )
+    }
+
+    // Apply pagination to filtered results
+    const startIndex = skip
+    const endIndex = startIndex + limit
+    const products = filteredProducts.slice(startIndex, endIndex)
     
-    // Calculate pagination info
-    const totalPages = Math.ceil(totalCount / limit)
+    // Recalculate pagination for filtered results
+    const filteredTotalCount = filteredProducts.length
+    const totalPages = Math.ceil(filteredTotalCount / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
     
@@ -86,7 +107,7 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        totalCount,
+        totalCount: filteredTotalCount,
         totalPages,
         hasNextPage,
         hasPrevPage

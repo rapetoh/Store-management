@@ -8,7 +8,12 @@ import {
   DollarSign, 
   Users,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  ShoppingCart,
+  Edit,
+  Trash2,
+  Settings,
+  Activity
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import AddProductModal from './AddProductModal'
@@ -16,14 +21,27 @@ import QuickSaleModal from './QuickSaleModal'
 import InventoryModal from './InventoryModal'
 import { useRouter } from 'next/navigation'
 
-const recentProducts = [
-  { id: 1, name: 'Souris Sans Fil X2', stock: 150, status: 'En stock', trend: 'up' },
-  { id: 2, name: 'Clavier Ergonomique', stock: 20, status: 'Stock faible', trend: 'down' },
-  { id: 3, name: 'Hub USB-C', stock: 5, status: 'Stock critique', trend: 'down' },
-  { id: 4, name: 'Casque Gaming Pro', stock: 3, status: 'Stock critique', trend: 'down' },
-]
+interface RecentActivity {
+  id: string
+  action: string
+  details: string
+  user: string
+  financialImpact: number | null
+  financialDisplay: string
+  category: string
+  createdAt: string
+  timeDisplay: string
+  icon: string
+  color: string
+  bgColor: string
+  textColor: string
+}
 
-export default function Dashboard() {
+interface DashboardProps {
+  onReplenishmentRequest?: (product: any) => void
+}
+
+export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
   const router = useRouter()
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
@@ -51,11 +69,13 @@ export default function Dashboard() {
     yearRevenue: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
 
   useEffect(() => {
     loadStats()
     loadChartData()
     loadCategoryProfitData()
+    loadRecentActivities()
   }, [])
 
   const loadStats = async () => {
@@ -89,6 +109,33 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error loading category profit data:', error)
+    }
+  }
+
+  const loadRecentActivities = async () => {
+    try {
+      const response = await fetch('/api/dashboard/recent-activities')
+      const data = await response.json()
+      setRecentActivities(data)
+    } catch (error) {
+      console.error('Error loading recent activities:', error)
+    }
+  }
+
+  const getActivityIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'shopping-cart':
+        return <ShoppingCart className="w-5 h-5" />
+      case 'edit':
+        return <Edit className="w-5 h-5" />
+      case 'trash':
+        return <Trash2 className="w-5 h-5" />
+      case 'package':
+        return <Package className="w-5 h-5" />
+      case 'settings':
+        return <Settings className="w-5 h-5" />
+      default:
+        return <Activity className="w-5 h-5" />
     }
   }
 
@@ -303,40 +350,52 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Products */}
+      {/* Recent Activities */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Produits Récents</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Activités Récentes</h3>
         </div>
         <div className="p-6">
           <div className="space-y-4">
-            {recentProducts.map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Package className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{product.name}</p>
-                    <p className="text-sm text-gray-600">Stock: {product.stock} unités</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    product.status === 'En stock' ? 'bg-green-100 text-green-800' :
-                    product.status === 'Stock faible' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {product.status}
-                  </span>
-                  {product.trend === 'up' ? (
-                    <ArrowUpRight className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="w-4 h-4 text-red-500" />
-                  )}
-                </div>
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-8">
+                <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500">Aucune activité récente</p>
               </div>
-            ))}
+            ) : (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-10 h-10 ${activity.bgColor} rounded-lg flex items-center justify-center`}>
+                      <div className={activity.textColor}>
+                        {getActivityIcon(activity.icon)}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{activity.details}</p>
+                      <div className="flex items-center space-x-4 mt-1">
+                        <p className="text-sm text-gray-600">{activity.category}</p>
+                        <span className="text-sm text-gray-500">•</span>
+                        <p className="text-sm text-gray-600">{activity.user}</p>
+                        <span className="text-sm text-gray-500">•</span>
+                        <p className="text-sm text-gray-600">{activity.timeDisplay}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      activity.financialImpact && activity.financialImpact > 0 
+                        ? 'bg-green-100 text-green-800' 
+                        : activity.financialImpact && activity.financialImpact < 0
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {activity.financialDisplay}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -361,6 +420,7 @@ export default function Dashboard() {
           // Refresh stats after inventory update
           loadStats()
         }}
+        onReplenishmentRequest={onReplenishmentRequest}
       />
     </div>
   )

@@ -15,7 +15,6 @@ import {
   Truck,
   XCircle,
   Download,
-  Upload,
   Receipt,
   DollarSign,
   CreditCard
@@ -345,15 +344,7 @@ export default function Sales() {
     showToast('success', 'Export terminé', 'Le fichier CSV a été téléchargé avec succès.')
   }
 
-  const handleImport = () => {
-    setInfoModalData({
-      title: 'Import de ventes',
-      message: 'Fonctionnalité d\'import\n\nSélectionnez un fichier CSV pour importer des ventes.\n\nCette fonctionnalité sera implémentée dans la prochaine version.',
-      type: 'info',
-      icon: 'info'
-    })
-    setShowInfoModal(true)
-  }
+
 
   return (
     <div className="space-y-6">
@@ -369,13 +360,6 @@ export default function Sales() {
           >
             <Plus className="w-4 h-4" />
             <span>Nouvelle vente</span>
-          </button>
-          <button
-            onClick={handleImport}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Importer</span>
           </button>
           <button
             onClick={handleExport}

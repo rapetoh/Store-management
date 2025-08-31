@@ -35,7 +35,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
     description: '',
     price: '',
     costPrice: '',
-    stock: '',
     minStock: '',
     barcode: '',
     sku: '',
@@ -93,8 +92,8 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.name || !formData.price || !formData.costPrice || !formData.categoryId) {
-      showToast('error', 'Champs requis', 'Le nom, le prix de vente, le prix d\'achat et la catégorie sont obligatoires')
+    if (!formData.name || !formData.price || !formData.costPrice || !formData.categoryId || !formData.barcode) {
+      showToast('error', 'Champs requis', 'Le nom, le prix de vente, le prix d\'achat, la catégorie et le code-barres sont obligatoires')
       return
     }
 
@@ -111,7 +110,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
           description: formData.description || undefined,
           price: parseFloat(formData.price),
           costPrice: parseFloat(formData.costPrice),
-          stock: parseInt(formData.stock) || 0,
+          stock: 0, // Stock initial toujours à 0
           minStock: parseInt(formData.minStock) || 0,
           barcode: formData.barcode || undefined,
           sku: formData.sku || undefined,
@@ -131,7 +130,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
             },
             body: JSON.stringify({
               action: 'modification',
-              details: `Ajout produit: ${formData.name} (${formData.sku || 'N/A'}) - Prix: ${parseFloat(formData.price).toLocaleString('fr-FR')} FCFA - Stock initial: ${parseInt(formData.stock) || 0}`,
+              details: `Ajout produit: ${formData.name} (${formData.sku || 'N/A'}) - Prix: ${parseFloat(formData.price).toLocaleString('fr-FR')} FCFA - Stock initial: 0`,
               user: 'Admin',
               financialImpact: undefined,
               category: 'Produits'
@@ -163,7 +162,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
       description: '',
       price: '',
       costPrice: '',
-      stock: '',
       minStock: '',
       barcode: '',
       sku: '',
@@ -292,7 +290,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Stock et inventaire</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Prix d'achat (FCFA) *
@@ -310,19 +308,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock initial
-                </label>
-                <input
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stock minimum
                 </label>
                 <input
@@ -332,6 +317,21 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-white text-xs font-bold">i</span>
+                </div>
+                <div>
+                  <p className="text-sm text-blue-800 font-medium">Information sur le stock</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Le stock initial sera automatiquement défini à 0. Pour ajouter du stock, 
+                    utilisez la section "Ravitaillement" après avoir créé le produit.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -397,7 +397,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }: Add
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <div className="flex items-center space-x-2">
-                    <span>Code-barres</span>
+                    <span>Code-barres <span className="text-red-500">*</span></span>
                     <span className="text-gray-500 text-xs">(idéalement scanné)</span>
                     {isScanning && (
                       <div className="flex items-center space-x-1">

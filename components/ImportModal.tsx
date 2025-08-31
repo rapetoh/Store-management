@@ -20,10 +20,6 @@ interface ImportResult {
 export default function ImportModal({ isOpen, onClose, onImportComplete }: ImportModalProps) {
   const [isImporting, setIsImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const [options, setOptions] = useState({
-    skipDuplicates: true,
-    updateExisting: false
-  })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,8 +39,7 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          products,
-          options
+          products
         })
       })
 
@@ -145,10 +140,6 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
 
   const handleClose = () => {
     setImportResult(null)
-    setOptions({
-      skipDuplicates: true,
-      updateExisting: false
-    })
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -177,34 +168,28 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h3 className="font-medium text-blue-900 mb-2">Instructions</h3>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Utilisez un fichier CSV avec les colonnes : Nom, Prix de vente (FCFA), Prix d'achat (FCFA), Stock</li>
-                  <li>• Les colonnes optionnelles : Description, Code-barres, SKU, Catégorie</li>
+                  <li>• <strong>Format de fichier :</strong> CSV (.csv) avec en-tête de colonnes</li>
+                  <li>• <strong>Colonnes obligatoires :</strong> Nom, Prix de vente (FCFA), Prix d'achat (FCFA), Stock, Code-barres</li>
+                  <li>• <strong>Colonnes optionnelles :</strong> Catégorie, Description, SKU, Fournisseur, Stock minimum</li>
                   <li>• Le fichier doit avoir un en-tête avec les noms des colonnes</li>
+                  <li>• Les valeurs numériques doivent être sans espaces ni symboles monétaires</li>
+                  <li>• Le code-barres doit être unique pour chaque produit (détection automatique des doublons)</li>
+                  <li>• Le stock peut être 0 mais ne doit pas être vide</li>
+                  <li>• Si la catégorie est vide ou invalide, le produit sera assigné à "Other"</li>
+                  <li>• Tous les produits importés sont automatiquement marqués comme actifs</li>
                 </ul>
               </div>
 
-              {/* Import Options */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Options d'import</h3>
-                <div className="space-y-3">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={options.skipDuplicates}
-                      onChange={(e) => setOptions(prev => ({ ...prev, skipDuplicates: e.target.checked }))}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Ignorer les doublons</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={options.updateExisting}
-                      onChange={(e) => setOptions(prev => ({ ...prev, updateExisting: e.target.checked }))}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Mettre à jour les produits existants</span>
-                  </label>
+              {/* Warning */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-amber-900 mb-1">⚠️ Information</h3>
+                    <p className="text-sm text-amber-800">
+                      L'import ajoutera de nouveaux produits à votre base de données. Les produits avec des code-barres déjà existants seront automatiquement ignorés.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -213,6 +198,9 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
                 <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <p className="text-sm text-gray-600 mb-4">
                   Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  Format accepté : <strong>CSV (.csv)</strong> avec en-tête de colonnes
                 </p>
                 <input
                   ref={fileInputRef}

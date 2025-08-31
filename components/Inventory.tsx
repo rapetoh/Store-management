@@ -56,7 +56,12 @@ interface Supplier {
   name: string
 }
 
-export default function Inventory() {
+interface InventoryProps {
+  preSelectedProduct?: any
+  showReplenishmentModalOnMount?: boolean
+}
+
+export default function Inventory({ preSelectedProduct, showReplenishmentModalOnMount }: InventoryProps) {
   const [activeTab, setActiveTab] = useState('overview')
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -98,8 +103,17 @@ export default function Inventory() {
     unitPrice: 0,
     deliveryCost: 0,
     receiptNumber: '',
+    expirationDate: '',
     notes: ''
   })
+
+  // Expirations tab state
+  const [expirations, setExpirations] = useState<any[]>([])
+  const [expirationsLoading, setExpirationsLoading] = useState(false)
+  const [expirationSearchTerm, setExpirationSearchTerm] = useState('')
+  const [selectedExpirationPeriod, setSelectedExpirationPeriod] = useState('30') // 30 jours par défaut
+  const [selectedExpirationSupplier, setSelectedExpirationSupplier] = useState('')
+  const [selectedExpirationStatus, setSelectedExpirationStatus] = useState('')
 
   // Autocomplete states
   const [productSearchTerm, setProductSearchTerm] = useState('')
@@ -125,13 +139,33 @@ export default function Inventory() {
     loadInventoryData()
   }, [searchTerm, selectedCategory, selectedSupplier, selectedStatus, notWorkedOnHours])
 
+  // Handle pre-selected product for replenishment
+  useEffect(() => {
+    if (preSelectedProduct && showReplenishmentModalOnMount) {
+      // Pre-fill the replenishment form with the selected product
+      setReplenishmentData(prev => ({
+        ...prev,
+        productId: preSelectedProduct.id,
+        productName: preSelectedProduct.name,
+        supplierId: preSelectedProduct.supplier?.id || '',
+        supplierName: preSelectedProduct.supplier?.name || '',
+        unitPrice: preSelectedProduct.costPrice || 0
+      }))
+      setProductSearchTerm(preSelectedProduct.name)
+      setSupplierSearchTerm(preSelectedProduct.supplier?.name || '')
+      setShowReplenishmentModal(true)
+    }
+  }, [preSelectedProduct, showReplenishmentModalOnMount])
+
   useEffect(() => {
     if (activeTab === 'movements') {
       loadMovements()
     } else if (activeTab === 'replenishment') {
       loadReplenishments()
+    } else if (activeTab === 'expirations') {
+      loadExpirations()
     }
-  }, [activeTab, movementSearchTerm, selectedMovementType, selectedStartDate, selectedEndDate, selectedMovementReason, selectedFinancialImpact, replenishmentSearchTerm, selectedReplenishmentSupplier, selectedReplenishmentStartDate, selectedReplenishmentEndDate, selectedReceiptNumber])
+  }, [activeTab, movementSearchTerm, selectedMovementType, selectedStartDate, selectedEndDate, selectedMovementReason, selectedFinancialImpact, replenishmentSearchTerm, selectedReplenishmentSupplier, selectedReplenishmentStartDate, selectedReplenishmentEndDate, selectedReceiptNumber, expirationSearchTerm, selectedExpirationPeriod, selectedExpirationSupplier, selectedExpirationStatus])
 
   const loadInventoryData = async () => {
     try {
@@ -232,6 +266,26 @@ export default function Inventory() {
     }
   }
 
+  const loadExpirations = async () => {
+    try {
+      setExpirationsLoading(true)
+      const params = new URLSearchParams()
+      if (expirationSearchTerm) params.append('search', expirationSearchTerm)
+      if (selectedExpirationSupplier) params.append('supplierId', selectedExpirationSupplier)
+      if (selectedExpirationPeriod) params.append('period', selectedExpirationPeriod)
+      if (selectedExpirationStatus) params.append('status', selectedExpirationStatus)
+
+      const response = await fetch(`/api/inventory/expirations?${params}`)
+      const data = await response.json()
+      setExpirations(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error loading expirations:', error)
+      setExpirations([])
+    } finally {
+      setExpirationsLoading(false)
+    }
+  }
+
   const showToast = (type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) => {
     if (typeof window !== 'undefined' && (window as any).showToast) {
       (window as any).showToast({ type, title, message })
@@ -260,6 +314,7 @@ export default function Inventory() {
       unitPrice: 0,
       deliveryCost: 0,
       receiptNumber: '',
+      expirationDate: '',
       notes: ''
     })
     setProductSearchTerm('')
@@ -412,6 +467,7 @@ export default function Inventory() {
           unitPrice: replenishmentData.unitPrice,
           deliveryCost: replenishmentData.deliveryCost,
           receiptNumber: replenishmentData.receiptNumber,
+          expirationDate: replenishmentData.expirationDate || undefined,
           notes: replenishmentData.notes
         }),
       })
@@ -523,6 +579,35 @@ export default function Inventory() {
     return product.stock * product.costPrice
   }
 
+  const getExpirationStatus = (expirationDate: string) => {
+    if (!expirationDate) return { text: 'Aucune', color: 'bg-gray-100 text-gray-800', days: null }
+    
+    const today = new Date()
+    const expiration = new Date(expirationDate)
+    const daysUntilExpiration = Math.ceil((expiration.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysUntilExpiration < 0) {
+      return { text: 'EXPIRÉ', color: 'bg-red-100 text-red-800', days: daysUntilExpiration }
+    } else if (daysUntilExpiration <= 7) {
+      return { text: 'CRITIQUE', color: 'bg-red-100 text-red-800', days: daysUntilExpiration }
+    } else if (daysUntilExpiration <= 30) {
+      return { text: 'PROCHE', color: 'bg-yellow-100 text-yellow-800', days: daysUntilExpiration }
+    } else if (daysUntilExpiration <= 90) {
+      return { text: 'DANS 3 MOIS', color: 'bg-orange-100 text-orange-800', days: daysUntilExpiration }
+    } else {
+      return { text: 'OK', color: 'bg-green-100 text-green-800', days: daysUntilExpiration }
+    }
+  }
+
+  const formatExpirationDate = (dateString: string) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -564,7 +649,7 @@ export default function Inventory() {
             { id: 'movements', name: 'Mouvements', icon: TrendingUp },
             { id: 'replenishment', name: 'Ravitaillement', icon: Truck },
             { id: 'counts', name: 'Inventaires', icon: CheckCircle },
-            { id: 'alerts', name: 'Alertes', icon: AlertTriangle },
+            { id: 'expirations', name: 'Péremptions', icon: AlertTriangle },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1073,18 +1158,21 @@ export default function Inventory() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     N° REÇU
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PÉREMPTION
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {replenishmentsLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                       Chargement...
                     </td>
                   </tr>
                 ) : replenishments.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                       Aucun ravitaillement trouvé
                     </td>
                   </tr>
@@ -1122,6 +1210,13 @@ export default function Inventory() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {replenishment.receiptNumber || 'N/A'}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {replenishment.expirationDate ? new Date(replenishment.expirationDate).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1132,9 +1227,204 @@ export default function Inventory() {
       )}
 
       {/* Other tabs content */}
-      {activeTab !== 'overview' && activeTab !== 'movements' && activeTab !== 'replenishment' && (
+      {activeTab !== 'overview' && activeTab !== 'movements' && activeTab !== 'replenishment' && activeTab !== 'expirations' && (
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-500">Contenu pour l'onglet {activeTab} - À implémenter</p>
+        </div>
+      )}
+
+      {/* Expirations Tab Content */}
+      {activeTab === 'expirations' && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Gestion des Péremptions</h3>
+                <p className="text-sm text-gray-600">Surveillance des produits avec dates de péremption</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">
+                  {expirations.length} produit(s) trouvé(s)
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit..."
+                  value={expirationSearchTerm}
+                  onChange={(e) => setExpirationSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Period Filter */}
+              <select 
+                value={selectedExpirationPeriod}
+                onChange={(e) => setSelectedExpirationPeriod(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="7">7 jours</option>
+                <option value="15">15 jours</option>
+                <option value="30">30 jours</option>
+                <option value="60">60 jours</option>
+                <option value="90">90 jours</option>
+                <option value="all">Toutes les dates</option>
+                <option value="expired">Déjà expirés</option>
+              </select>
+
+              {/* Supplier Filter */}
+              <select 
+                value={selectedExpirationSupplier}
+                onChange={(e) => setSelectedExpirationSupplier(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les fournisseurs</option>
+                {Array.isArray(suppliers) && suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select 
+                value={selectedExpirationStatus}
+                onChange={(e) => setSelectedExpirationStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="expired">Expirés</option>
+                <option value="critical">Critique (≤7 jours)</option>
+                <option value="close">Proche (≤30 jours)</option>
+                <option value="ok">OK (>30 jours)</option>
+              </select>
+
+              {/* Clear Filters */}
+              <button 
+                onClick={() => {
+                  setExpirationSearchTerm('')
+                  setSelectedExpirationPeriod('30')
+                  setSelectedExpirationSupplier('')
+                  setSelectedExpirationStatus('')
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Effacer les filtres
+              </button>
+            </div>
+          </div>
+
+          {/* Expirations Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PRODUIT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    FOURNISSEUR
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    QUANTITÉ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE D'ACHAT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DATE DE PÉREMPTION
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    JOURS RESTANTS
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    STATUT
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    N° REÇU
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {expirationsLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Chargement...
+                    </td>
+                  </tr>
+                ) : expirations.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Aucun produit avec péremption trouvé
+                    </td>
+                  </tr>
+                ) : (
+                  expirations.map((expiration) => {
+                    const status = getExpirationStatus(expiration.expirationDate)
+                    
+                    return (
+                      <tr key={expiration.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <Package className="h-6 w-6 text-blue-600" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{expiration.product?.name || 'N/A'}</div>
+                              <div className="text-sm text-gray-500">{expiration.product?.sku || 'N/A'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {expiration.supplier?.name || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {expiration.quantity} unités
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(expiration.createdAt).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatExpirationDate(expiration.expirationDate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {status.days !== null ? (
+                            <span className={status.days < 0 ? 'text-red-600' : status.days <= 7 ? 'text-red-600' : status.days <= 30 ? 'text-yellow-600' : 'text-green-600'}>
+                              {status.days < 0 ? `${Math.abs(status.days)} jours en retard` : `${status.days} jours`}
+                            </span>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${status.color}`}>
+                            {status.text}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {expiration.receiptNumber || 'N/A'}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1328,6 +1618,20 @@ export default function Inventory() {
                       placeholder="Numéro de reçu ou facture"
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
+                  </div>
+
+                  {/* Expiration Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Date de péremption</label>
+                    <input
+                      type="date"
+                      value={replenishmentData.expirationDate}
+                      onChange={(e) => setReplenishmentData({...replenishmentData, expirationDate: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Date limite de consommation du lot acheté (optionnel)
+                    </p>
                   </div>
 
                   {/* Notes */}

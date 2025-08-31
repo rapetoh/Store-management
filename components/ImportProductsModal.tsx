@@ -128,9 +128,9 @@ export default function ImportProductsModal({ isOpen, onClose, onImportComplete 
 
   const handleDownloadTemplate = () => {
     const template = [
-      'Nom,SKU,Catégorie,Fournisseur,Stock,Prix,Description,MinStock,Barcode',
-      'Lait 1L,LAIT001,Alimentation,Fournisseur A,50,1.20,Lait frais 1L,10,3017620422003',
-      'Pain baguette,PAIN001,Boulangerie,Fournisseur B,30,0.85,Pain frais,5,3017620422004'
+      'Nom,Prix de vente (FCFA),Prix d\'achat (FCFA),Stock,Code-barres,Catégorie,Description,SKU,Fournisseur,Stock minimum',
+      'Lait 1L,1200,800,50,3017620422003,Alimentation,Lait frais 1L,LAIT001,Fournisseur A,10',
+      'Pain baguette,850,600,30,3017620422004,Boulangerie,Pain frais,PAIN001,Fournisseur B,5'
     ].join('\n')
 
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' })
@@ -191,11 +191,29 @@ export default function ImportProductsModal({ isOpen, onClose, onImportComplete 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="text-lg font-medium text-blue-900 mb-2">Instructions</h3>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Sélectionnez un fichier CSV avec les colonnes: Nom, SKU, Catégorie, Fournisseur, Stock, Prix</li>
-                  <li>• Les colonnes optionnelles: Description, MinStock, Barcode</li>
+                  <li>• <strong>Format de fichier :</strong> CSV (.csv) avec en-tête de colonnes</li>
+                  <li>• <strong>Colonnes obligatoires :</strong> Nom, Prix de vente (FCFA), Prix d'achat (FCFA), Stock, Code-barres</li>
+                  <li>• <strong>Colonnes optionnelles :</strong> Catégorie, Description, SKU, Fournisseur, Stock minimum</li>
                   <li>• Le fichier doit avoir un en-tête avec les noms des colonnes</li>
-                  <li>• Les produits existants avec le même SKU seront mis à jour</li>
+                  <li>• Les valeurs numériques doivent être sans espaces ni symboles monétaires</li>
+                  <li>• Le code-barres doit être unique pour chaque produit (détection automatique des doublons)</li>
+                  <li>• Le stock peut être 0 mais ne doit pas être vide</li>
+                  <li>• Si la catégorie est vide ou invalide, le produit sera assigné à "Other"</li>
+                  <li>• Tous les produits importés sont automatiquement marqués comme actifs</li>
                 </ul>
+              </div>
+
+              {/* Warning */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-amber-900 mb-1">⚠️ Information</h3>
+                    <p className="text-sm text-amber-800">
+                      L'import ajoutera de nouveaux produits à votre base de données. Les produits avec des code-barres déjà existants seront automatiquement ignorés.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* File Upload */}
@@ -203,6 +221,9 @@ export default function ImportProductsModal({ isOpen, onClose, onImportComplete 
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Sélectionner un fichier CSV</h3>
                 <p className="text-gray-600 mb-4">Glissez-déposez votre fichier ici ou cliquez pour parcourir</p>
+                <p className="text-xs text-gray-500 mb-4">
+                  Format accepté : <strong>CSV (.csv)</strong> avec en-tête de colonnes
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -271,7 +292,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImportComplete 
                           <td className="px-3 py-2">{product.sku || 'N/A'}</td>
                           <td className="px-3 py-2">{product.category || 'N/A'}</td>
                           <td className="px-3 py-2">{product.stock}</td>
-                          <td className="px-3 py-2">€{product.price.toFixed(2)}</td>
+                          <td className="px-3 py-2">{product.price.toFixed(0)} FCFA</td>
                         </tr>
                       ))}
                       {previewData.length > 5 && (

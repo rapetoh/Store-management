@@ -129,7 +129,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
           description: formData.description || undefined,
           price: parseFloat(formData.price),
           costPrice: parseFloat(formData.costPrice),
-          stock: parseInt(formData.stock) || 0,
+          stock: product.stock, // Garder le stock original - ne pas modifier via ce formulaire
           minStock: parseInt(formData.minStock) || 0,
           barcode: formData.barcode || undefined,
           sku: formData.sku || undefined,
@@ -150,7 +150,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
             },
             body: JSON.stringify({
               action: 'modification',
-              details: `Modification produit: ${product.name} → ${formData.name} - Prix: ${product.price} → ${parseFloat(formData.price)} FCFA - Stock: ${product.stock} → ${parseInt(formData.stock) || 0}`,
+              details: `Modification produit: ${product.name} → ${formData.name} - Prix: ${product.price} → ${parseFloat(formData.price)} FCFA - Stock: ${product.stock} (inchangé)`,
               user: 'Admin',
               financialImpact: undefined,
               category: 'Produits'
@@ -260,7 +260,7 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Stock et inventaire</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Prix d'achat (FCFA) *
@@ -278,19 +278,6 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock actuel
-                </label>
-                <input
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stock minimum
                 </label>
                 <input
@@ -300,6 +287,40 @@ export default function EditProductModal({ isOpen, onClose, onProductUpdated, pr
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock actuel (lecture seule)
+                </label>
+                <input
+                  type="number"
+                  value={formData.stock}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                  placeholder="0"
+                  disabled
+                />
+              </div>
+            </div>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center mt-0.5">
+                  <AlertTriangle className="w-3 h-3 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-amber-800 font-medium">Modification du stock</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Le stock actuel ne peut être modifié directement. Pour changer le stock, utilisez :
+                  </p>
+                  <ul className="text-sm text-amber-700 mt-2 space-y-1">
+                    <li>• <strong>Ventes</strong> : Diminution automatique lors des ventes</li>
+                    <li>• <strong>Ravitaillement</strong> : Augmentation via la section "Ravitaillement"</li>
+                    <li>• <strong>Ajustement d'inventaire</strong> : Via la section "Inventaire"</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

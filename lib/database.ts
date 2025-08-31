@@ -1543,6 +1543,7 @@ export class DatabaseService {
     unitPrice: number
     deliveryCost: number
     receiptNumber?: string
+    expirationDate?: Date | null
     notes?: string
     userId?: string
   }) {
@@ -1560,6 +1561,7 @@ export class DatabaseService {
           deliveryCost: data.deliveryCost,
           totalPrice: totalPrice,
           receiptNumber: data.receiptNumber,
+          expirationDate: data.expirationDate,
           notes: data.notes,
           userId: data.userId
         }

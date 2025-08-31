@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useNotificationCount } from '@/hooks/useNotificationCount'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -18,6 +19,7 @@ import Cash from '@/components/Cash' // New import
 import InventoryModal from '@/components/InventoryModal' // New import
 import Inventory from '@/components/Inventory' // New import
 import Logs from '@/components/Logs' // New import
+import InventoryInsightsModal from '@/components/InventoryInsightsModal' // New import
 
 import AdvancedReportsModal from '@/components/AdvancedReportsModal' // New import
 
@@ -35,6 +37,7 @@ const navigationItems = [
 
 export default function Home() {
   const searchParams = useSearchParams()
+  const { unreadCount, refreshCount } = useNotificationCount()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -49,9 +52,14 @@ export default function Home() {
   // New states for all modals
   const [showInventoryModal, setShowInventoryModal] = useState(false)
   const [inventoryType, setInventoryType] = useState<'adjustment' | 'transfer' | 'alert' | 'count'>('adjustment')
+  const [showInventoryInsightsModal, setShowInventoryInsightsModal] = useState(false)
 
   const [showAdvancedReportsModal, setShowAdvancedReportsModal] = useState(false)
   const [reportType, setReportType] = useState<'sales' | 'inventory' | 'customers' | 'financial' | 'custom'>('sales')
+
+  // State for replenishment modal
+  const [showReplenishmentModal, setShowReplenishmentModal] = useState(false)
+  const [selectedProductForReplenishment, setSelectedProductForReplenishment] = useState<any>(null)
 
   // Check URL parameters on mount and when they change
   useEffect(() => {
@@ -118,6 +126,7 @@ export default function Home() {
 
   const handleNotifications = () => {
     setShowNotifications(true)
+    refreshCount() // Refresh notification count when opening modal
   }
 
   const handleUserProfile = () => {
@@ -157,8 +166,7 @@ export default function Home() {
   }
 
   const handleInventoryAdjustment = () => {
-    setInventoryType('adjustment')
-    setShowInventoryModal(true)
+    setShowInventoryInsightsModal(true)
   }
 
   const handleInventoryTransfer = () => {
@@ -166,10 +174,7 @@ export default function Home() {
     setShowInventoryModal(true)
   }
 
-  const handleInventoryAlerts = () => {
-    setInventoryType('alert')
-    setShowInventoryModal(true)
-  }
+
 
   const handleInventoryCount = () => {
     setInventoryType('count')
@@ -181,6 +186,19 @@ export default function Home() {
     setShowAdvancedReportsModal(true)
   }
 
+  const handleReplenishmentRequest = (product: any) => {
+    setSelectedProductForReplenishment(product)
+    setShowReplenishmentModal(true)
+    // Navigate to inventory section to show the replenishment modal
+    setActiveSection('inventory')
+    
+    // Reset the state after a short delay to allow the modal to open
+    setTimeout(() => {
+      setShowReplenishmentModal(false)
+      setSelectedProductForReplenishment(null)
+    }, 100)
+  }
+
   const renderContent = () => {
     // Get date parameters for sales filtering
     const startDate = searchParams.get('startDate')
@@ -188,11 +206,14 @@ export default function Home() {
     
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard />
+        return <Dashboard onReplenishmentRequest={handleReplenishmentRequest} />
       case 'products':
         return <Products />
       case 'inventory':
-        return <Inventory />
+        return <Inventory 
+          preSelectedProduct={selectedProductForReplenishment}
+          showReplenishmentModalOnMount={showReplenishmentModal}
+        />
       case 'sales':
         return <Sales key={`sales-${startDate}-${endDate}`} />
       case 'customers':
@@ -314,13 +335,6 @@ export default function Home() {
                 >
                   <Package className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={handleInventoryAlerts}
-                  className="p-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-md transition-colors"
-                  title="Alertes de stock"
-                >
-                  <AlertTriangle className="w-5 h-5" />
-                </button>
 
                 {/* Advanced Reports */}
                 <button
@@ -334,10 +348,15 @@ export default function Home() {
               
               <button
                 onClick={handleNotifications}
-                className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors relative"
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
               
               <button
@@ -393,6 +412,11 @@ export default function Home() {
           showToast('success', 'Rapport généré', `Rapport "${report.name}" généré avec succès`)
         }}
         type={reportType}
+      />
+
+      <InventoryInsightsModal
+        isOpen={showInventoryInsightsModal}
+        onClose={() => setShowInventoryInsightsModal(false)}
       />
     </div>
   )

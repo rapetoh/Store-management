@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       unitPrice,
       deliveryCost,
       receiptNumber,
+      expirationDate,
       notes,
       userId
     } = body
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       unitPrice: parseFloat(unitPrice),
       deliveryCost: parseFloat(deliveryCost || 0),
       receiptNumber,
+      expirationDate: expirationDate ? new Date(expirationDate) : null,
       notes,
       userId
     })

@@ -8,6 +8,7 @@ interface InventoryModalProps {
   onClose: () => void
   onInventoryUpdated: (update: any) => void
   type: 'adjustment' | 'transfer' | 'alert' | 'count'
+  onReplenishmentRequest?: (product: Product) => void
 }
 
 interface Product {
@@ -19,6 +20,11 @@ interface Product {
   maxStock: number
   location: string
   category: string
+  supplier?: {
+    id: string
+    name: string
+  } | null
+  costPrice?: number
 }
 
 interface StockAdjustment {
@@ -31,7 +37,7 @@ interface StockAdjustment {
   type: 'add' | 'remove' | 'set'
 }
 
-export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, type }: InventoryModalProps) {
+export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, type, onReplenishmentRequest }: InventoryModalProps) {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([])
   const [transferData, setTransferData] = useState({
@@ -95,7 +101,12 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
           minStock: product.minStock,
           maxStock: product.minStock * 3, // Estimate max stock
           location: 'Rayon A1', // Default location since we don't have this in our schema
-          category: product.category?.name || 'Général'
+          category: product.category?.name || 'Général',
+          supplier: product.supplier ? {
+            id: product.supplier.id,
+            name: product.supplier.name
+          } : null,
+          costPrice: product.costPrice || 0
         }))
         
         if (page === 1) {
@@ -123,9 +134,14 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
   useEffect(() => {
     if (isOpen) {
       loadCategories()
-      loadProducts(1, searchTerm, selectedCategory)
+      if (type === 'alert') {
+        // For alerts, load all products to show low stock alerts
+        loadProducts(1, '', '')
+      } else {
+        loadProducts(1, searchTerm, selectedCategory)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, type])
 
   // Reload products when search or category changes
   useEffect(() => {
@@ -244,6 +260,13 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
 
   const getLowStockProducts = () => {
     return products.filter(product => product.currentStock <= product.minStock)
+  }
+
+  const handleReplenishmentFromAlert = (product: Product) => {
+    if (onReplenishmentRequest) {
+      onReplenishmentRequest(product)
+      onClose() // Close the alert modal
+    }
   }
 
 
@@ -530,9 +553,18 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
                             <h4 className="font-medium text-red-900">{product.name}</h4>
                             <p className="text-sm text-red-700">SKU: {product.sku} • Emplacement: {product.location}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-red-900">{product.currentStock}</p>
-                            <p className="text-sm text-red-700">Min: {product.minStock}</p>
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-red-900">{product.currentStock}</p>
+                              <p className="text-sm text-red-700">Min: {product.minStock}</p>
+                            </div>
+                            <button
+                              onClick={() => handleReplenishmentFromAlert(product)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                            >
+                              <Package className="w-4 h-4" />
+                              <span>Ravitaillement</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -545,8 +577,6 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
                   </div>
                 )}
               </div>
-
-
             </div>
           )}
 
@@ -614,32 +644,46 @@ export default function InventoryModal({ isOpen, onClose, onInventoryUpdated, ty
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Annuler
-            </button>
-            
-            <button
-              onClick={processInventoryUpdate}
-              disabled={isProcessing || (type === 'adjustment' && selectedProducts.length === 0)}
-              className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2 ${getButtonColor()}`}
-            >
-              {isProcessing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Traitement...</span>
-                </>
-              ) : (
-                <>
-                  {getIcon()}
-                  <span>{getButtonText()}</span>
-                </>
-              )}
-            </button>
-          </div>
+          {type !== 'alert' && (
+            <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              
+              <button
+                onClick={processInventoryUpdate}
+                disabled={isProcessing || (type === 'adjustment' && selectedProducts.length === 0)}
+                className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2 ${getButtonColor()}`}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Traitement...</span>
+                  </>
+                ) : (
+                  <>
+                    {getIcon()}
+                    <span>{getButtonText()}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          
+          {/* Close button for alert modal */}
+          {type === 'alert' && (
+            <div className="flex items-center justify-end pt-6 border-t border-gray-200">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
