@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useNotificationCount } from '@/hooks/useNotificationCount'
+import { useCompanyInfo } from '@/hooks/useCompanyInfo'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -38,6 +39,7 @@ const navigationItems = [
 export default function Home() {
   const searchParams = useSearchParams()
   const { unreadCount, refreshCount } = useNotificationCount()
+  const { companyInfo } = useCompanyInfo()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -242,7 +244,7 @@ export default function Home() {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">S</span>
                 </div>
-                <span className="text-lg font-bold text-gray-900 hidden sm:block">StockFlow</span>
+                <span className="text-lg font-bold text-gray-900 hidden sm:block">{companyInfo.name}</span>
               </div>
               
               <nav className="hidden md:flex space-x-2">

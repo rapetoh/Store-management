@@ -496,7 +496,7 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
               <p className="text-sm text-gray-600">75001 Paris, France</p>
               <p className="text-sm text-gray-600">Tél: +33 1 23 45 67 89</p>
               <p className="text-sm text-gray-600">Email: contact@stockflow.fr</p>
-              <p className="text-sm text-gray-600">SIRET: 123 456 789 00012</p>
+                              <p className="text-sm text-gray-600">Immatriculation: TG123456789</p>
             </div>
 
             {/* Invoice Details */}
@@ -622,7 +622,7 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
                           <div className="text-sm text-gray-500">Code: {product.sku}</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium text-gray-900">€{product.price.toFixed(2)}</div>
+                          <div className="font-medium text-gray-900">{product.price.toLocaleString('fr-FR')} FCFA</div>
                           <div className="text-sm text-gray-500">Stock: {product.stock}</div>
                         </div>
                       </div>
@@ -685,7 +685,7 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
                     <div className="flex justify-between items-center">
                       <span className="font-medium text-blue-600">{promo.code}</span>
                       <span className="text-gray-500">
-                        {promo.type === 'percentage' ? `${promo.value}%` : `€${promo.value}`}
+                        {promo.type === 'percentage' ? `${promo.value}%` : `${promo.value} FCFA`}
                       </span>
                     </div>
                     <div className="text-gray-600 mt-1">{promo.description}</div>
@@ -772,7 +772,7 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
                         />
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        €{((item.quantity * item.unitPrice) * (1 - item.discount / 100)).toFixed(2)}
+                        FCFA{((item.quantity * item.unitPrice) * (1 - item.discount / 100)).toFixed(2)}
                       </td>
                       <td className="px-4 py-2">
                         <button
@@ -816,22 +816,22 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Sous-total HT:</span>
-                  <span className="font-medium">€{calculateSubtotal().toFixed(2)}</span>
+                  <span className="font-medium">FCFA{calculateSubtotal().toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">TVA:</span>
-                  <span className="font-medium">€{calculateTax().toFixed(2)}</span>
+                  <span className="font-medium">FCFA{calculateTax().toFixed(2)}</span>
                 </div>
                 {appliedPromo && (
                   <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Réduction promo:</span>
-                    <span className="font-medium text-green-600">-€{calculatePromoDiscount().toFixed(2)}</span>
+                    <span className="font-medium text-green-600">-FCFA{calculatePromoDiscount().toFixed(2)}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-300 pt-2">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold">Total TTC:</span>
-                    <span className="text-lg font-semibold">€{calculateTotal().toFixed(2)}</span>
+                    <span className="text-lg font-semibold">FCFA{calculateTotal().toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -887,19 +887,19 @@ export default function InvoiceModal({ isOpen, onClose, order }: InvoiceModalPro
                 <tr key={item.id}>
                   <td>{item.name}</td>
                   <td>{item.quantity}</td>
-                  <td>€{item.unitPrice.toFixed(2)}</td>
-                  <td>€{((item.quantity * item.unitPrice) * (1 - item.discount / 100)).toFixed(2)}</td>
+                  <td>FCFA{item.unitPrice.toFixed(2)}</td>
+                  <td>FCFA{((item.quantity * item.unitPrice) * (1 - item.discount / 100)).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="totals">
-            <p><strong>Sous-total HT:</strong> €{calculateSubtotal().toFixed(2)}</p>
-            <p><strong>TVA:</strong> €{calculateTax().toFixed(2)}</p>
+            <p><strong>Sous-total HT:</strong> FCFA{calculateSubtotal().toFixed(2)}</p>
+            <p><strong>TVA:</strong> FCFA{calculateTax().toFixed(2)}</p>
             {appliedPromo && (
-              <p><strong>Réduction promo:</strong> -€{calculatePromoDiscount().toFixed(2)}</p>
+              <p><strong>Réduction promo:</strong> -FCFA{calculatePromoDiscount().toFixed(2)}</p>
             )}
-            <p><strong>Total TTC:</strong> €{calculateTotal().toFixed(2)}</p>
+            <p><strong>Total TTC:</strong> FCFA{calculateTotal().toFixed(2)}</p>
           </div>
         </div>
       </div>

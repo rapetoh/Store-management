@@ -54,7 +54,7 @@ export default function SupplierManagement() {
     try {
       const response = await fetch('/api/suppliers')
       const data = await response.json()
-      setSuppliers(data.suppliers || [])
+      setSuppliers(data || [])
     } catch (error) {
       console.error('Error loading suppliers:', error)
     } finally {

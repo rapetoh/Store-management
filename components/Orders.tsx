@@ -62,7 +62,7 @@ interface Sale {
 
 const statuses = ['Tous les statuts', 'Payé', 'En cours', 'Remboursé', 'Annulé']
 const paymentMethods = ['Toutes les méthodes', 'cash', 'card', 'check', 'transfer']
-const cashiers = ['Tous les caissiers', 'Marie Dupont', 'Jean Martin', 'Sophie Bernard']
+const cashiers = ['Tous les caissiers', 'Caissier actuel']
 
 export default function Sales() {
   const searchParams = useSearchParams()
@@ -180,11 +180,21 @@ export default function Sales() {
 
   const getPaymentMethodIcon = (method: string) => {
     switch (method) {
-      case 'Espèces': return <DollarSign className="w-4 h-4" />
-      case 'Carte bancaire': return <CreditCard className="w-4 h-4" />
-      case 'Chèque': return <DollarSign className="w-4 h-4" />
-      case 'Virement': return <DollarSign className="w-4 h-4" />
+      case 'cash': return <DollarSign className="w-4 h-4" />
+      case 'card': return <CreditCard className="w-4 h-4" />
+      case 'check': return <DollarSign className="w-4 h-4" />
+      case 'transfer': return <DollarSign className="w-4 h-4" />
       default: return <DollarSign className="w-4 h-4" />
+    }
+  }
+
+  const getPaymentMethodDisplayName = (method: string) => {
+    switch (method) {
+      case 'cash': return 'Espèces'
+      case 'card': return 'Carte bancaire'
+      case 'check': return 'Chèque'
+      case 'transfer': return 'Virement'
+      default: return method
     }
   }
 
@@ -498,7 +508,7 @@ export default function Sales() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       {getPaymentMethodIcon(sale.paymentMethod)}
-                      <span className="text-sm text-gray-900">{sale.paymentMethod}</span>
+                      <span className="text-sm text-gray-900">{getPaymentMethodDisplayName(sale.paymentMethod)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

@@ -28,6 +28,27 @@ model TaxRate {
   @@index([isActive])
 }
 
+// Payment methods table
+model PaymentMethod {
+  id              String    @id @default(cuid())
+  name            String    // Display name (e.g., "Espèces", "Carte bancaire")
+  code            String    @unique // Internal code (e.g., "cash", "card")
+  icon            String?   // Icon name for display
+  isActive        Boolean   @default(true)
+  requiresReceipt Boolean   @default(true)
+  sortOrder       Int       @default(0) // For ordering in UI
+  description     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  sales          Sale[]
+  
+  @@index([code])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
 // Categories for products
 model Category {
   id          String    @id @default(cuid())
@@ -55,6 +76,7 @@ model Supplier {
   // Relations
   products    Product[]
   replenishments Replenishment[]
+  expirationAlerts ExpirationAlert[]
   
   @@index([name])
   @@index([email])
@@ -90,6 +112,7 @@ model Product {
   movements   InventoryMovement[]
   replenishments Replenishment[]
   notifications Notification[]
+  expirationAlerts ExpirationAlert[]
   
   @@index([name])
   @@index([barcode])
@@ -148,7 +171,7 @@ model Sale {
   
   @@index([customerId])
   @@index([saleDate])
-  @@index([paymentMethod])
+  @@index([paymentMethodId])
 }
 
 // Sale items table
@@ -219,6 +242,18 @@ model Setting {
   updatedAt   DateTime  @updatedAt
 }
 
+// User settings table for application configuration (key-value store)
+model UserSettings {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([key])
+}
+
 // Cash sessions table for cash register management
 model CashSession {
   id              String    @id @default(cuid())
@@ -280,6 +315,8 @@ model Replenishment {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   
+  expirationAlerts ExpirationAlert[]
+  
   @@index([productId])
   @@index([supplierId])
   @@index([createdAt])
@@ -306,4 +343,27 @@ model Notification {
   @@index([priority])
   @@index([productId])
   @@index([createdAt])
+}
+
+// Expiration alerts table for tracking product expiration dates
+model ExpirationAlert {
+  id                String    @id @default(cuid())
+  replenishmentId   String
+  replenishment     Replenishment @relation(fields: [replenishmentId], references: [id])
+  productId         String
+  product           Product   @relation(fields: [productId], references: [id])
+  supplierId        String?
+  supplier          Supplier? @relation(fields: [supplierId], references: [id])
+  expirationDate    DateTime
+  originalQuantity  Int
+  currentQuantity   Int
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([productId])
+  @@index([supplierId])
+  @@index([expirationDate])
+  @@index([isActive])
+  @@index([replenishmentId])
 }

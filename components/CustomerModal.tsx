@@ -295,7 +295,7 @@ export default function CustomerModal({ isOpen, onClose, onCustomerSelected, typ
                             <Star className="w-4 h-4 text-yellow-500" />
                             <span className="font-medium">{customer.loyaltyPoints} pts</span>
                           </div>
-                          <p className="text-sm text-gray-600">€{customer.totalSpent.toFixed(2)}</p>
+                          <p className="text-sm text-gray-600">{customer.totalSpent.toLocaleString('fr-FR')} FCFA</p>
                         </div>
                       </div>
                     </div>
@@ -432,7 +432,7 @@ export default function CustomerModal({ isOpen, onClose, onCustomerSelected, typ
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h4 className="font-medium text-blue-900">Total dépensé</h4>
-                  <p className="text-2xl font-bold text-blue-600">€{selectedCustomer.totalSpent.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-blue-600">{selectedCustomer.totalSpent.toLocaleString('fr-FR')} FCFA</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4">
                   <h4 className="font-medium text-green-900">Visites</h4>
@@ -455,7 +455,7 @@ export default function CustomerModal({ isOpen, onClose, onCustomerSelected, typ
                         <p className="text-sm text-gray-600">{purchase.date} • {purchase.items} articles</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-gray-900">€{purchase.total.toFixed(2)}</p>
+                        <p className="font-medium text-gray-900">{purchase.total.toLocaleString('fr-FR')} FCFA</p>
                         <p className="text-sm text-gray-600">{purchase.paymentMethod}</p>
                       </div>
                     </div>

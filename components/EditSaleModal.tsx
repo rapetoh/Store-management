@@ -385,7 +385,7 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                        <div className="flex-1">
                          <p className="font-medium text-gray-900">{item.productName}</p>
                          <p className="text-sm text-gray-600">
-                           {item.quantity} x €{item.unitPrice.toFixed(2)} = €{item.totalPrice.toFixed(2)}
+                           {item.quantity} x {item.unitPrice.toLocaleString('fr-FR')} FCFA = {item.totalPrice.toLocaleString('fr-FR')} FCFA
                          </p>
                        </div>
                        <div className="flex items-center space-x-2">
@@ -418,7 +418,7 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
               {getTotalReturnAmount() > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                   <p className="text-blue-800 font-medium">
-                    Montant total du retour: €{getTotalReturnAmount().toFixed(2)}
+                    Montant total du retour: {getTotalReturnAmount().toLocaleString('fr-FR')} FCFA
                   </p>
                 </div>
               )}
@@ -501,7 +501,7 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                     <h3 className="text-lg font-medium text-gray-900">Détails de la vente</h3>
                                          <div className="bg-gray-50 p-4 rounded-md">
                        <p><strong>Client:</strong> {sale.customer || 'Client anonyme'}</p>
-                       <p><strong>Total:</strong> €{(sale.finalAmount || sale.total || 0).toFixed(2)}</p>
+                       <p><strong>Total:</strong> {(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA</p>
                        <p><strong>Articles:</strong> {sale.items?.length || 0}</p>
                        <p><strong>Date:</strong> {new Date(sale.saleDate || sale.date || '').toLocaleString('fr-FR')}</p>
                      </div>

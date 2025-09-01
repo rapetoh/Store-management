@@ -4,12 +4,20 @@ import DatabaseService from '@/lib/database'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
+    const q = searchParams.get('q') // General search query
     const phone = searchParams.get('phone')
     const loyaltyCard = searchParams.get('loyaltyCard')
     
+    // If we have a general search query, search by name, phone, or loyalty card
+    if (q) {
+      const customers = await DatabaseService.searchCustomers(q)
+      return NextResponse.json(customers)
+    }
+    
+    // Legacy search by specific parameters
     if (!phone && !loyaltyCard) {
       return NextResponse.json(
-        { error: 'Phone or loyaltyCard parameter is required' },
+        { error: 'Search query (q) or phone/loyaltyCard parameter is required' },
         { status: 400 }
       )
     }

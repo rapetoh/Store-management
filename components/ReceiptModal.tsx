@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { X, Printer, Download, Receipt } from 'lucide-react'
 import QRCode from 'qrcode'
+import { useCompanyInfo } from '../hooks/useCompanyInfo'
 
 interface SaleItem {
   id: string
@@ -40,6 +41,7 @@ interface ReceiptModalProps {
 export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('')
+  const { companyInfo, isLoading: isLoadingCompany } = useCompanyInfo()
 
   // Generate QR code data
   const formatDate = (dateString: string) => {
@@ -61,7 +63,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
       ? sale.items.map(item => `- ${item.productName}: ${item.quantity} x ${item.unitPrice.toLocaleString('fr-FR')} FCFA = ${item.totalPrice.toLocaleString('fr-FR')} FCFA`).join('\n')
       : 'Aucun article'
 
-    const qrText = `STOCKFLOW - RECU DE VENTE
+    const qrText = `${companyInfo.name || 'StockFlow'} - RECU DE VENTE
 ID: ${sale.id}
 Date: ${formatDate(sale.saleDate || sale.date || new Date().toISOString())}
 Client: ${sale.customer || 'Client anonyme'}
@@ -77,7 +79,7 @@ ${sale.discountAmount && sale.discountAmount > 0 ? `Remise: -${sale.discountAmou
 ${sale.notes ? `Notes: ${sale.notes}` : ''}
 
 Merci de votre visite!
-StockFlow - Lomé, Togo`
+${companyInfo.name || 'StockFlow'} - ${companyInfo.address ? companyInfo.address.split('\n')[0] : 'Adresse non configurée'}`
 
     return qrText
   }
@@ -261,10 +263,10 @@ StockFlow - Lomé, Togo`
           <div ref={printRef} className="receipt bg-white border border-gray-200 rounded-lg p-4 max-w-sm mx-auto">
             {/* Header */}
             <div className="header text-center border-b border-dashed border-gray-300 pb-3 mb-3">
-              <h1 className="text-lg font-bold text-gray-900">STOCKFLOW</h1>
+              <h1 className="text-lg font-bold text-gray-900">{companyInfo.name || 'StockFlow'}</h1>
               <h2 className="text-sm text-gray-600">Gestion de Stock</h2>
-              <p className="text-xs text-gray-500">123 Rue du Commerce, Lomé, Togo</p>
-              <p className="text-xs text-gray-500">Tél: +228 90 12 34 56</p>
+              <p className="text-xs text-gray-500">{companyInfo.address || 'Adresse non configurée'}</p>
+              <p className="text-xs text-gray-500">Tél: {companyInfo.phone || 'Téléphone non configuré'}</p>
             </div>
 
             {/* Sale Info */}
@@ -371,7 +373,7 @@ StockFlow - Lomé, Togo`
             {/* Footer */}
             <div className="footer text-center mt-4 pt-3 border-t border-dashed border-gray-300">
               <p className="text-xs text-gray-500 mb-1">Merci de votre visite !</p>
-              <p className="text-xs text-gray-500">Conservez ce reçu pour vos retours</p>
+      
               <p className="text-xs text-gray-400 mt-2">Reçu généré automatiquement</p>
             </div>
           </div>

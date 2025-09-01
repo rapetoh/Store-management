@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
+import {
   Plus, 
   Search, 
   Filter, 
@@ -343,30 +343,30 @@ export default function Products() {
       {/* Search and Filters */}
       <div className="space-y-4">
         {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
             placeholder="Rechercher par nom, SKU ou code-barres..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
         {/* Filters Panel */}
         {showFilters && (
           <div className="bg-gray-50 p-4 rounded-lg space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-gray-900">Filtres</h3>
-              <button
+            <button
                 onClick={clearFilters}
                 className="text-sm text-gray-600 hover:text-gray-800"
-              >
+            >
                 Effacer tout
-              </button>
-            </div>
-            
+            </button>
+        </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Category Filter */}
               <div>
@@ -440,13 +440,13 @@ export default function Products() {
                 : 'Commencez par ajouter votre premier produit'
               }
             </p>
-          </div>
+        </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
+            <thead className="bg-gray-50">
+              <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Produit
                     </th>
@@ -455,6 +455,9 @@ export default function Products() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Prix
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Marge
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       QTÉ
@@ -468,14 +471,14 @@ export default function Products() {
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
                   {products.map((product) => {
                     const stockStatus = getStockStatus(product)
                     return (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               {product.image ? (
@@ -510,49 +513,65 @@ export default function Products() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
+                            {product.costPrice ? (
+                              <>
+                                <div className="font-medium">
+                                  {(product.price - product.costPrice).toLocaleString('fr-FR')} FCFA
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {product.price > 0 ? Math.round(((product.price - product.costPrice) / product.price) * 100) : 0}%
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
                             {product.stock} unités
                           </div>
                           <div className={`text-xs px-2 py-1 rounded-full inline-block ${stockStatus.bg}`}>
                             <span className={stockStatus.color}>{stockStatus.text}</span>
-                          </div>
-                        </td>
+                    </div>
+                  </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {product.taxRate ? `${product.taxRate.name} (${product.taxRate.rate}%)` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             product.isActive 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
                             {product.isActive ? 'Actif' : 'Inactif'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
                               onClick={() => handleEditProduct(product)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
                               onClick={() => {
                                 setSelectedProduct(product)
                                 setShowConfirmModal(true)
                               }}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
                     )
                   })}
-                </tbody>
-              </table>
-            </div>
+            </tbody>
+          </table>
+        </div>
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (

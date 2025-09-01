@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 export interface NotificationData {
-  type: 'stock_low' | 'stock_critical' | 'stock_out' | 'sale' | 'replenishment' | 'system'
+  type: 'stock_low' | 'stock_critical' | 'stock_out' | 'sale' | 'replenishment' | 'system' | 'expiration'
   title: string
   message: string
   priority: 'low' | 'normal' | 'high' | 'critical'
@@ -66,6 +66,80 @@ export class NotificationService {
       }
     } catch (error) {
       console.error('Erreur lors de la vérification des niveaux de stock:', error)
+    }
+  }
+
+  // Check expiration alerts and create notifications
+  static async checkExpirationAlerts(expirationDaysThreshold = 30) {
+    try {
+      const today = new Date()
+      const thresholdDate = new Date()
+      thresholdDate.setDate(today.getDate() + expirationDaysThreshold)
+
+      const expiringAlerts = await prisma.expirationAlert.findMany({
+        where: {
+          isActive: true,
+          currentQuantity: { gt: 0 },
+          expirationDate: {
+            gte: today,
+            lte: thresholdDate
+          }
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true
+            }
+          },
+          supplier: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          expirationDate: 'asc'
+        }
+      })
+
+      for (const alert of expiringAlerts) {
+        const daysUntilExpiration = Math.ceil((new Date(alert.expirationDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // Vérifier s'il n'y a pas déjà une notification pour cette alerte
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            productId: alert.productId,
+            type: 'expiration',
+            isRead: false,
+            metadata: {
+              contains: `"expirationAlertId":"${alert.id}"`
+            }
+          }
+        })
+
+        if (!existingNotification) {
+          const priority = daysUntilExpiration <= 7 ? 'critical' : daysUntilExpiration <= 14 ? 'high' : 'normal'
+          
+          await this.createNotification({
+            type: 'expiration',
+            title: 'Produit expirant bientôt',
+            message: `Le produit "${alert.product.name}" expire dans ${daysUntilExpiration} jour${daysUntilExpiration > 1 ? 's' : ''} (${alert.currentQuantity} unités restantes)`,
+            priority,
+            productId: alert.productId,
+            metadata: {
+              expirationAlertId: alert.id,
+              expirationDate: alert.expirationDate,
+              currentQuantity: alert.currentQuantity,
+              supplierName: alert.supplier?.name,
+              daysUntilExpiration
+            }
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des expirations:', error)
     }
   }
 

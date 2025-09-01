@@ -41,17 +41,17 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
   const discountRules: DiscountRule[] = [
     {
       id: '1',
-      name: 'Remise fidélité 10%',
+      name: 'Remise 15%',
       type: 'percentage',
-      value: 10,
-      minAmount: 50,
+      value: 15,
+      minAmount: 100000,
       validFrom: '2024-01-01',
       validUntil: '2025-12-31',
       customerGroups: ['fidèle', 'vip'],
       productCategories: ['all'],
       maxUses: 1000,
       usedCount: 234,
-      description: '10% de réduction pour clients fidèles',
+      description: '15% de réduction pour achats > 100000 FCFA',
       isActive: true
     },
     {
@@ -66,22 +66,22 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
       productCategories: ['all'],
       maxUses: 500,
       usedCount: 89,
-      description: '15% de réduction pour achats > 100€',
+      description: '15% de réduction pour achats > 100 FCFA',
       isActive: true
     },
     {
       id: '3',
-      name: 'Remise fixe 5€',
+      name: 'Remise fixe 5000 FCFA',
       type: 'fixed',
-      value: 5,
-      minAmount: 25,
+      value: 5000,
+      minAmount: 25000,
       validFrom: '2024-01-01',
       validUntil: '2025-12-31',
       customerGroups: ['all'],
       productCategories: ['all'],
       maxUses: 2000,
       usedCount: 567,
-      description: '5€ de réduction pour achats > 25€',
+      description: '5000 FCFA de réduction pour achats > 25000 FCFA',
       isActive: true
     },
     {
@@ -167,7 +167,7 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
     
     onDiscountApplied({
       id: 'custom',
-      name: `Remise personnalisée ${customDiscount.value}${customDiscount.type === 'percentage' ? '%' : '€'}`,
+      name: `Remise personnalisée ${customDiscount.value}${customDiscount.type === 'percentage' ? '%' : ' FCFA'}`,
       type: customDiscount.type,
       value: customDiscount.value,
       appliedAmount: discountAmount,
@@ -260,17 +260,17 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{discount.description}</p>
                             <div className="flex items-center justify-between text-xs text-gray-500">
-                              <span>Min: €{discount.minAmount || 0}</span>
+                              <span>Min: FCFA{discount.minAmount || 0}</span>
                               <span>Utilisé: {discount.usedCount}/{discount.maxUses}</span>
                             </div>
                           </div>
                           {isValid && (
                             <div className="text-right">
                               <div className="text-lg font-bold text-green-600">
-                                -€{discountAmount.toFixed(2)}
+                                -FCFA{discountAmount.toFixed(2)}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {discount.type === 'percentage' ? `${discount.value}%` : `€${discount.value}`}
+                                {discount.type === 'percentage' ? `${discount.value}%` : `FCFA${discount.value}`}
                               </div>
                             </div>
                           )}
@@ -305,7 +305,7 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="percentage">Pourcentage (%)</option>
-                          <option value="fixed">Montant fixe (€)</option>
+                          <option value="fixed">Montant fixe (FCFA)</option>
                         </select>
                       </div>
                       <div>
@@ -316,7 +316,7 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                           value={customDiscount.value}
                           onChange={(e) => setCustomDiscount(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder={customDiscount.type === 'percentage' ? '10' : '5.00'}
+                          placeholder={customDiscount.type === 'percentage' ? '10' : '5000'}
                         />
                       </div>
                     </div>
@@ -369,12 +369,12 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                       <div className="flex justify-between">
                         <span className="text-gray-600">Valeur:</span>
                         <span className="font-medium">
-                          {selectedDiscount.type === 'percentage' ? `${selectedDiscount.value}%` : `€${selectedDiscount.value}`}
+                          {selectedDiscount.type === 'percentage' ? `${selectedDiscount.value}%` : `FCFA${selectedDiscount.value}`}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Montant minimum:</span>
-                        <span className="font-medium">€{selectedDiscount.minAmount || 0}</span>
+                        <span className="font-medium">FCFA{selectedDiscount.minAmount || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Validité:</span>
@@ -389,15 +389,15 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span>Sous-total:</span>
-                          <span>€{totalAmount.toFixed(2)}</span>
+                          <span>FCFA{totalAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-green-600">
                           <span>Remise:</span>
-                          <span>-€{calculateDiscountAmount(selectedDiscount).toFixed(2)}</span>
+                          <span>-FCFA{calculateDiscountAmount(selectedDiscount).toFixed(2)}</span>
                         </div>
                         <div className="border-t pt-1 flex justify-between font-medium">
                           <span>Total après remise:</span>
-                          <span>€{(totalAmount - calculateDiscountAmount(selectedDiscount)).toFixed(2)}</span>
+                          <span>FCFA{(totalAmount - calculateDiscountAmount(selectedDiscount)).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -429,12 +429,12 @@ export default function DiscountModal({ isOpen, onClose, onDiscountApplied, cart
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Sous-total:</span>
-                      <span className="font-medium">€{totalAmount.toFixed(2)}</span>
+                      <span className="font-medium">FCFA{totalAmount.toFixed(2)}</span>
                     </div>
                     <div className="border-t pt-2">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total:</span>
-                        <span>€{totalAmount.toFixed(2)}</span>
+                        <span>FCFA{totalAmount.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

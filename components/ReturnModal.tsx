@@ -177,7 +177,7 @@ export default function ReturnModal({ isOpen, onClose, onReturnProcessed, origin
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total original:</span>
-                    <span className="font-medium">€{originalSale?.total?.toFixed(2) || '15.50'}</span>
+                    <span className="font-medium">FCFA{originalSale?.total?.toFixed(2) || '15.50'}</span>
                   </div>
                 </div>
               </div>
@@ -195,11 +195,11 @@ export default function ReturnModal({ isOpen, onClose, onReturnProcessed, origin
                           <div>
                             <h4 className="font-medium text-gray-900">{item.name}</h4>
                             <p className="text-sm text-gray-600">
-                              Prix: €{item.price.toFixed(2)} • Quantité achetée: {item.quantity}
+                              Prix: FCFA{item.price.toFixed(2)} • Quantité achetée: {item.quantity}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">€{(item.price * item.quantity).toFixed(2)}</p>
+                            <p className="font-medium">FCFA{(item.price * item.quantity).toFixed(2)}</p>
                           </div>
                         </div>
 
@@ -210,7 +210,7 @@ export default function ReturnModal({ isOpen, onClose, onReturnProcessed, origin
                                 Retour: {returnItem.returnQuantity}/{item.quantity}
                               </span>
                               <span className="font-bold text-green-800">
-                                -€{returnItem.refundAmount.toFixed(2)}
+                                -FCFA{returnItem.refundAmount.toFixed(2)}
                               </span>
                             </div>
                             <div className="text-xs text-green-700">
@@ -404,7 +404,7 @@ export default function ReturnModal({ isOpen, onClose, onReturnProcessed, origin
                         </div>
                         <div>
                           <p className="text-gray-600">Montant remboursé:</p>
-                          <p className="font-medium text-green-600">€{getReturnSummary().totalRefund.toFixed(2)}</p>
+                          <p className="font-medium text-green-600">FCFA{getReturnSummary().totalRefund.toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-gray-600">État neuf:</p>
@@ -420,7 +420,7 @@ export default function ReturnModal({ isOpen, onClose, onReturnProcessed, origin
                     <div className="border-t border-gray-300 pt-3">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total remboursement:</span>
-                        <span className="text-green-600">€{getTotalRefundAmount().toFixed(2)}</span>
+                        <span className="text-green-600">FCFA{getTotalRefundAmount().toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

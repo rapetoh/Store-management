@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { X, Search, Plus, Minus, Receipt, Printer, Barcode, Percent, User, Mail, Phone, CreditCard, Trash2 } from 'lucide-react'
 import DiscountModal from './DiscountModal'
 import CashRegisterWarningModal from './CashRegisterWarningModal'
+import PromoCodeModal from './PromoCodeModal'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
+import { useCompanyInfo } from '../hooks/useCompanyInfo'
 
 interface Product {
   id: string
@@ -97,6 +99,22 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showCashRegisterWarning, setShowCashRegisterWarning] = useState(false)
   const [defaultTaxRate, setDefaultTaxRate] = useState<{ rate: number } | null>(null)
+  
+  // Company information
+  const { companyInfo } = useCompanyInfo()
+  
+
+  
+  // Customer search states
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('')
+  const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([])
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false)
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false)
+  
+  // Promo code modal state
+  const [showPromoCodeModal, setShowPromoCodeModal] = useState(false)
+  
+
 
   // Barcode scanner hook
   const { barcodeBuffer, isScanning, clearBuffer } = useBarcodeScanner({
@@ -110,6 +128,60 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     maxLength: 20,
     timeout: 150
   })
+
+  // Customer search function
+  const searchCustomers = async (searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
+      setCustomerSearchResults([])
+      setShowCustomerSearch(false)
+      return
+    }
+
+    setIsSearchingCustomers(true)
+    try {
+      const response = await fetch(`/api/customers/search?q=${encodeURIComponent(searchTerm)}`)
+      if (response.ok) {
+        const customers = await response.json()
+        setCustomerSearchResults(customers)
+        setShowCustomerSearch(customers.length > 0)
+      }
+    } catch (error) {
+      console.error('Error searching customers:', error)
+      setCustomerSearchResults([])
+    } finally {
+      setIsSearchingCustomers(false)
+    }
+  }
+
+  // Handle customer selection
+  const selectCustomer = (customer: any) => {
+    setCustomerInfo({
+      name: customer.name || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      loyaltyCard: customer.loyaltyCard || ''
+    })
+    setCustomerSearchTerm(customer.name || '')
+    setShowCustomerSearch(false)
+    setCustomerSearchResults([])
+  }
+
+  // Handle customer search input change
+  const handleCustomerSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setCustomerSearchTerm(value)
+    
+    // Clear customer info if search is cleared
+    if (!value.trim()) {
+      setCustomerInfo({ name: '', email: '', phone: '', loyaltyCard: '' })
+      setShowCustomerSearch(false)
+      setCustomerSearchResults([])
+      return
+    }
+    
+    // Search customers as user types
+    searchCustomers(value)
+  }
 
   // Load products and default tax rate on component mount
   useEffect(() => {
@@ -144,6 +216,8 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
       setDefaultTaxRate({ rate: 18 }) // Fallback to 18% for Togo
     }
   }
+
+
 
   const getProductTaxRate = (product: Product) => {
     return product.taxRate?.rate || defaultTaxRate?.rate || 18
@@ -403,6 +477,8 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     setAppliedDiscount(null)
     showToast('info', 'Remise supprimée', 'La remise a été supprimée du panier')
   }
+  
+
 
   const handleOpenCashRegister = async (initialAmount: number, cashierName: string) => {
     try {
@@ -465,7 +541,7 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     // Generate receipt content
     const receiptContent = `
 =================================
-STOCKFLOW - RECU DE VENTE
+${companyInfo.name || 'StockFlow'} - RECU DE VENTE
 =================================
 Date: ${new Date().toLocaleDateString('fr-FR')}
 Heure: ${new Date().toLocaleTimeString('fr-FR')}
@@ -619,11 +695,14 @@ Merci de votre visite !
     }
   }
 
+
+  // Payment methods - customize these as you like
   const paymentMethods: PaymentMethod[] = [
     { id: 'cash', name: 'Espèces', isActive: true },
     { id: 'card', name: 'Carte bancaire', isActive: true },
     { id: 'check', name: 'Chèque', isActive: true },
-    { id: 'transfer', name: 'Virement', isActive: true }
+    { id: 'transferTmoney', name: 'Transfert Tmoney', isActive: true },
+    { id: 'transferFlooz', name: 'Transfert Flooz', isActive: true }
   ]
 
   if (!isOpen) return null
@@ -820,6 +899,48 @@ Merci de votre visite !
 
             {/* Right side - Customer info and payment */}
             <div className="space-y-6">
+              {/* Customer Search */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Rechercher un client</h3>
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={customerSearchTerm}
+                      onChange={handleCustomerSearchChange}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Rechercher par nom, téléphone ou carte de fidélité..."
+                    />
+                  </div>
+                  
+                  {/* Customer search results dropdown */}
+                  {showCustomerSearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {isSearchingCustomers ? (
+                        <div className="px-4 py-2 text-sm text-gray-500">Recherche en cours...</div>
+                      ) : customerSearchResults.length > 0 ? (
+                        customerSearchResults.map((customer) => (
+                          <button
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{customer.name}</div>
+                            <div className="text-sm text-gray-600">
+                              {customer.phone && `${customer.phone} • `}
+                              {customer.loyaltyCard && `Carte: ${customer.loyaltyCard}`}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-sm text-gray-500">Aucun client trouvé</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Customer Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">Informations client</h3>
@@ -886,10 +1007,7 @@ Merci de votre visite !
                     </div>
                   ))}
                   <button
-                    onClick={() => {
-                      const code = prompt('Entrez le code promo:')
-                      if (code) handlePromoCode(code)
-                    }}
+                    onClick={() => setShowPromoCodeModal(true)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     + Ajouter un code promo
@@ -927,22 +1045,22 @@ Merci de votre visite !
               </div>
 
               {/* Payment Method */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-gray-900">Mode de paiement</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {paymentMethods.map((method) => (
                     <button
                       key={method.id}
                       onClick={() => handlePaymentMethodChange(method.id)}
-                      className={`p-3 border rounded-lg transition-colors ${
+                      className={`p-2 border rounded-md transition-colors ${
                         selectedPaymentMethod === method.id
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-300 hover:border-gray-400'
                       }`}
                     >
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-4 h-4" />
-                        <span className="text-sm font-medium">{method.name}</span>
+                      <div className="flex items-center space-x-1">
+                        <CreditCard className="w-3 h-3" />
+                        <span className="text-xs font-medium">{method.name}</span>
                       </div>
                     </button>
                   ))}
@@ -1038,6 +1156,18 @@ Merci de votre visite !
           onDiscountApplied={handleDiscountApplied}
           cartItems={cart}
           totalAmount={getSubtotal()}
+        />
+
+        {/* Promo Code Modal */}
+        <PromoCodeModal
+          isOpen={showPromoCodeModal}
+          onClose={() => setShowPromoCodeModal(false)}
+          onPromoCodeSelected={(promoCode) => {
+            // Apply the selected promo code
+            setAppliedPromos(prev => [...prev, promoCode])
+            showToast('success', 'Code promo appliqué', `Code ${promoCode.code} appliqué avec succès`)
+          }}
+          currentAmount={getSubtotal()}
         />
 
         {/* Cash Register Warning Modal */}

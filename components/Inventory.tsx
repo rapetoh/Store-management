@@ -108,13 +108,18 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   })
 
   // Expirations tab state
-  const [expirations, setExpirations] = useState<any[]>([])
+  const [expirations, setExpirations] = useState([])
   const [expirationsLoading, setExpirationsLoading] = useState(false)
   const [expirationSearchTerm, setExpirationSearchTerm] = useState('')
-  const [selectedExpirationPeriod, setSelectedExpirationPeriod] = useState('30') // 30 jours par défaut
+  const [selectedExpirationPeriod, setSelectedExpirationPeriod] = useState('30')
   const [selectedExpirationSupplier, setSelectedExpirationSupplier] = useState('')
   const [selectedExpirationStatus, setSelectedExpirationStatus] = useState('')
-
+  
+  // Modal pour éditer la quantité
+  const [editQuantityModal, setEditQuantityModal] = useState(false)
+  const [editingExpiration, setEditingExpiration] = useState(null)
+  const [editQuantity, setEditQuantity] = useState('')
+  
   // Autocomplete states
   const [productSearchTerm, setProductSearchTerm] = useState('')
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('')
@@ -134,6 +139,9 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     reason: '',
     notes: ''
   })
+
+  // Paramètres
+  const [settingsLoading, setSettingsLoading] = useState(false)
 
   useEffect(() => {
     loadInventoryData()
@@ -275,7 +283,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       if (selectedExpirationPeriod) params.append('period', selectedExpirationPeriod)
       if (selectedExpirationStatus) params.append('status', selectedExpirationStatus)
 
-      const response = await fetch(`/api/inventory/expirations?${params}`)
+      const response = await fetch(`/api/inventory/expiration-alerts?${params}`)
       const data = await response.json()
       setExpirations(Array.isArray(data) ? data : [])
     } catch (error) {
@@ -387,9 +395,16 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     setReplenishmentData({
       ...replenishmentData,
       productId: product.id,
-      productName: product.name
+      productName: product.name,
+      // Pré-remplir le prix unitaire avec le prix d'achat du produit
+      unitPrice: product.costPrice || 0,
+      // Pré-remplir le fournisseur si disponible
+      supplierId: product.supplier?.id || '',
+      supplierName: product.supplier?.name || ''
     })
     setProductSearchTerm(product.name)
+    // Pré-remplir aussi le champ de recherche du fournisseur
+    setSupplierSearchTerm(product.supplier?.name || '')
     setShowProductSuggestions(false)
   }
 
@@ -442,7 +457,20 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       const data = await response.json()
       if (Array.isArray(data) && data.length > 0) {
         const product = data[0]
-        selectProduct(product)
+        // Utiliser la même logique que selectProduct pour pré-remplir
+        setReplenishmentData({
+          ...replenishmentData,
+          productId: product.id,
+          productName: product.name,
+          // Pré-remplir le prix unitaire avec le prix d'achat du produit
+          unitPrice: product.costPrice || 0,
+          // Pré-remplir le fournisseur si disponible
+          supplierId: product.supplier?.id || '',
+          supplierName: product.supplier?.name || ''
+        })
+        setProductSearchTerm(product.name)
+        // Pré-remplir aussi le champ de recherche du fournisseur
+        setSupplierSearchTerm(product.supplier?.name || '')
       } else {
         // If no product found, set the barcode as search term
         setProductSearchTerm(barcode)
@@ -607,6 +635,107 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       year: 'numeric'
     })
   }
+
+  const handleUpdateExpirationQuantity = async (id, newQuantity) => {
+    try {
+      const response = await fetch(`/api/inventory/expiration-alerts`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, currentQuantity: newQuantity })
+      })
+
+      if (response.ok) {
+        const updatedAlert = await response.json()
+        setExpirations(prev => prev.map(exp => 
+          exp.id === id ? updatedAlert : exp
+        ))
+        showToast('success', 'Quantité mise à jour avec succès')
+      } else {
+        showToast('error', 'Erreur lors de la mise à jour')
+      }
+    } catch (error) {
+      console.error('Error updating expiration quantity:', error)
+      showToast('error', 'Erreur lors de la mise à jour')
+    }
+  }
+
+  const openEditQuantityModal = (expiration) => {
+    setEditingExpiration(expiration)
+    setEditQuantity(expiration.currentQuantity.toString())
+    setEditQuantityModal(true)
+  }
+
+  const closeEditQuantityModal = () => {
+    setEditQuantityModal(false)
+    setEditingExpiration(null)
+    setEditQuantity('')
+  }
+
+  const handleSaveQuantity = async () => {
+    if (!editingExpiration) return
+    
+    const newQuantity = parseInt(editQuantity) || 0
+    
+    // Validation côté client - empêcher TOUTE augmentation
+    if (newQuantity > editingExpiration.currentQuantity) {
+      showToast('error', 'Erreur', 'La quantité ne peut pas être augmentée. Vous pouvez seulement la diminuer.')
+      return
+    }
+    
+    await handleUpdateExpirationQuantity(editingExpiration.id, newQuantity)
+    closeEditQuantityModal()
+  }
+
+  // Charger les paramètres
+  const loadSettings = async () => {
+    try {
+      setSettingsLoading(true)
+      const response = await fetch('/api/settings')
+      if (response.ok) {
+        const settings = await response.json()
+        if (settings.notWorkedOnHours) {
+          setNotWorkedOnHours(parseInt(settings.notWorkedOnHours))
+        }
+
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error)
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  // Sauvegarder les paramètres
+  const saveSettings = async () => {
+    try {
+      setSettingsLoading(true)
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notWorkedOnHours: notWorkedOnHours.toString()
+        })
+      })
+      
+      if (response.ok) {
+        showToast('success', 'Paramètres sauvegardés', 'Les paramètres ont été sauvegardés avec succès')
+        setShowSettingsModal(false)
+      } else {
+        showToast('error', 'Erreur', 'Impossible de sauvegarder les paramètres')
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      showToast('error', 'Erreur', 'Impossible de sauvegarder les paramètres')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -1322,108 +1451,164 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
             </div>
           </div>
 
-          {/* Expirations Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PRODUIT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    FOURNISSEUR
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    QUANTITÉ
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    DATE D'ACHAT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    DATE DE PÉREMPTION
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    JOURS RESTANTS
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    STATUT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    N° REÇU
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {expirationsLoading ? (
+          {/* Expirations Tab Content */}
+          <div className="space-y-4">
+            {/* Notice explicative */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Information importante
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>
+                      Les quantités affichées sont <strong>théoriques</strong> et basées sur votre dernier ravitaillement. 
+                      Si des produits avec cette date de péremption ont été vendus, veuillez vérifier le stock réel 
+                      et ajuster la quantité restante en conséquence.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Expirations Table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
-                      Chargement...
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PRODUIT
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      FOURNISSEUR
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      QUANTITÉ ACHETÉE
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      STOCK ACTUEL
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      QUANTITÉ RESTANTE
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      DATE D'ACHAT
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      DATE DE PÉREMPTION
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      JOURS RESTANTS
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      STATUT
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      N° REÇU
+                    </th>
                   </tr>
-                ) : expirations.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
-                      Aucun produit avec péremption trouvé
-                    </td>
-                  </tr>
-                ) : (
-                  expirations.map((expiration) => {
-                    const status = getExpirationStatus(expiration.expirationDate)
-                    
-                    return (
-                      <tr key={expiration.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                <Package className="h-6 w-6 text-blue-600" />
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {expirationsLoading ? (
+                    <tr>
+                      <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                        Chargement...
+                      </td>
+                    </tr>
+                  ) : expirations.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                        Aucun produit avec péremption trouvé
+                      </td>
+                    </tr>
+                  ) : (
+                    expirations.map((expiration) => {
+                      const status = getExpirationStatus(expiration.expirationDate)
+                      
+                      return (
+                        <tr key={expiration.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Package className="h-6 w-6 text-blue-600" />
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{expiration.product?.name || 'N/A'}</div>
+                                <div className="text-sm text-gray-500">{expiration.product?.sku || 'N/A'}</div>
                               </div>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{expiration.product?.name || 'N/A'}</div>
-                              <div className="text-sm text-gray-500">{expiration.product?.sku || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expiration.supplier?.name || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expiration.originalQuantity}
+                            <div className="text-xs text-gray-500 mt-1">
+                              Quantité achetée
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expiration.supplier?.name || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expiration.quantity} unités
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(expiration.createdAt).toLocaleDateString('fr-FR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                          })}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatExpirationDate(expiration.expirationDate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {status.days !== null ? (
-                            <span className={status.days < 0 ? 'text-red-600' : status.days <= 7 ? 'text-red-600' : status.days <= 30 ? 'text-yellow-600' : 'text-green-600'}>
-                              {status.days < 0 ? `${Math.abs(status.days)} jours en retard` : `${status.days} jours`}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expiration.product?.stock}
+                            <div className="text-xs text-gray-500 mt-1">
+                              Stock total du produit
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <button
+                              onClick={() => openEditQuantityModal(expiration)}
+                              className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              title="Modifier la quantité restante pour cette date de péremption"
+                            >
+                              {expiration.currentQuantity}
+                              <svg className="ml-1 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Restant pour cette péremption
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(expiration.replenishment?.createdAt || expiration.createdAt).toLocaleDateString('fr-FR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatExpirationDate(expiration.expirationDate)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {status.days !== null ? (
+                              <span className={status.days < 0 ? 'text-red-600' : status.days <= 7 ? 'text-red-600' : status.days <= 30 ? 'text-yellow-600' : 'text-green-600'}>
+                                {status.days < 0 ? `${Math.abs(status.days)} jours en retard` : `${status.days} jours`}
+                              </span>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${status.color}`}>
+                              {status.text}
                             </span>
-                          ) : (
-                            'N/A'
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${status.color}`}>
-                            {status.text}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {expiration.receiptNumber || 'N/A'}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {expiration.replenishment?.receiptNumber || 'N/A'}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1695,13 +1880,75 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                     Un produit est considéré comme "travaillé" s'il a été inventorié dans les dernières {notWorkedOnHours} heures
                   </p>
                 </div>
+
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowSettingsModal(false)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
                 >
-                  Fermer
+                  Annuler
+                </button>
+                <button
+                  onClick={saveSettings}
+                  disabled={settingsLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {settingsLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal d'édition de quantité */}
+      {editQuantityModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Modifier la quantité restante
+              </h3>
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Produit: <span className="font-medium">{editingExpiration?.product?.name}</span>
+                </p>
+                <p className="text-sm text-gray-600 mb-2">
+                  Date de péremption: <span className="font-medium">
+                    {editingExpiration?.expirationDate ? new Date(editingExpiration.expirationDate).toLocaleDateString('fr-FR') : 'N/A'}
+                  </span>
+                </p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantité restante
+                </label>
+                <input
+                  type="number"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min="0"
+                  max={editingExpiration?.currentQuantity}
+                  placeholder="Entrez la nouvelle quantité"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Quantité maximale autorisée : {editingExpiration?.currentQuantity} (quantité actuelle - vous pouvez seulement diminuer)
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeEditQuantityModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 border border-gray-300 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSaveQuantity}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Enregistrer
                 </button>
               </div>
             </div>

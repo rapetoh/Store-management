@@ -517,27 +517,27 @@ export default function CashRegisterModal({ isOpen, onClose, type }: CashRegiste
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">Détail du comptage</h3>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <p className="text-gray-600">50€</p>
+                    <p className="text-gray-600">50000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">20€</p>
+                    <p className="text-gray-600">20000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">10€</p>
+                    <p className="text-gray-600">10000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">5€</p>
+                    <p className="text-gray-600">5000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">2€</p>
+                    <p className="text-gray-600">2000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">1€</p>
+                    <p className="text-gray-600">1000 FCFA</p>
                     <p className="font-medium">0</p>
                   </div>
                 </div>

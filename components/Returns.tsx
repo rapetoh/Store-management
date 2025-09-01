@@ -67,7 +67,7 @@ export default function Returns() {
               const dateMatch = match.match(/\[RETOUR - ([^\]]+)\]/)
               const reasonMatch = sale.notes.match(/Raison: ([^\n]+)/)
               const itemsMatch = sale.notes.match(/Articles retournés: ([^\n]+)/)
-              const amountMatch = sale.notes.match(/Montant retourné: €([0-9.]+)/)
+              const amountMatch = sale.notes.match(/Montant retourné: FCFA([0-9.]+)/)
 
               if (dateMatch) {
                 returnData.push({
@@ -210,7 +210,7 @@ export default function Returns() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Montant total</p>
-              <p className="text-2xl font-bold text-gray-900">€{stats.totalAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900">FCFA{stats.totalAmount.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function Returns() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Moyenne</p>
-              <p className="text-2xl font-bold text-gray-900">€{stats.averageReturnAmount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900">FCFA{stats.averageReturnAmount.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -372,7 +372,7 @@ export default function Returns() {
                       {ret.items}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                      -€{ret.amount.toFixed(2)}
+                      -FCFA{ret.amount.toFixed(2)}
                     </td>
                   </tr>
                 ))}

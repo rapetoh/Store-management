@@ -124,7 +124,7 @@ export default function Customers() {
     setSelectedCustomer(customer)
     setInfoModalData({
       title: 'Détails du client',
-      message: `Nom: ${customer.name}\nEmail: ${customer.email || 'N/A'}\nTéléphone: ${customer.phone || 'N/A'}\nAdresse: ${customer.address || 'N/A'}\nCarte de fidélité: ${customer.loyaltyCard || 'N/A'}\nTotal des achats: ${customer.totalPurchases || 0}€\nDernier achat: ${customer.lastPurchase || 'Aucun'}`,
+      message: `Nom: ${customer.name}\nEmail: ${customer.email || 'N/A'}\nTéléphone: ${customer.phone || 'N/A'}\nAdresse: ${customer.address || 'N/A'}\nCarte de fidélité: ${customer.loyaltyCard || 'N/A'}\nTotal des achats: ${customer.totalPurchases || 0} FCFA\nDernier achat: ${customer.lastPurchase || 'Aucun'}`,
       type: 'info',
       icon: 'info'
     })
@@ -319,7 +319,7 @@ export default function Customers() {
                       </div>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${!customer.isActive ? 'text-gray-500' : 'text-gray-900'}`}>
-                      €{(customer.totalPurchases || 0).toFixed(2)}
+                                              {(customer.totalPurchases || 0).toLocaleString('fr-FR')} FCFA
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${

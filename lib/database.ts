@@ -256,6 +256,23 @@ export class DatabaseService {
     })
   }
 
+  static async searchCustomers(searchTerm: string) {
+    const searchLower = searchTerm.toLowerCase()
+    return await prisma.customer.findMany({
+      where: {
+        OR: [
+          { name: { contains: searchLower } },
+          { phone: { contains: searchTerm } },
+          { loyaltyCard: { contains: searchLower } },
+          { email: { contains: searchLower } }
+        ],
+        isActive: true
+      },
+      orderBy: { name: 'asc' },
+      take: 10 // Limit results to 10 customers
+    })
+  }
+
   // Sale operations
   static async createSale(data: {
     customerId?: string
@@ -565,7 +582,7 @@ export class DatabaseService {
     const returnNote = `\n\n[RETOUR - ${new Date().toLocaleString('fr-FR')}]\nRaison: ${reason}\nArticles retournés: ${returnItems.map(item => {
       const saleItem = sale.items.find(si => si.id === item.itemId)
       return `${saleItem?.product.name} (${item.quantity})`
-    }).join(', ')}\nMontant retourné: €${totalReturnAmount.toFixed(2)}`
+    }).join(', ')}\nMontant retourné: FCFA${totalReturnAmount.toFixed(2)}`
 
     await prisma.sale.update({
       where: { id: saleId },
@@ -1549,9 +1566,20 @@ export class DatabaseService {
   }) {
     const totalPrice = (data.quantity * data.unitPrice) + data.deliveryCost
 
-    // Use transaction to create replenishment and update stock
     return await prisma.$transaction(async (tx) => {
-      // Create the replenishment record
+      // Récupérer le stock actuel avant le ravitaillement
+      const product = await tx.product.findUnique({
+        where: { id: data.productId },
+        select: { stock: true }
+      })
+
+      if (!product) {
+        throw new Error('Product not found')
+      }
+
+      const previousStock = product.stock
+      const newStock = previousStock + data.quantity
+
       const replenishment = await tx.replenishment.create({
         data: {
           productId: data.productId,
@@ -1567,29 +1595,15 @@ export class DatabaseService {
         }
       })
 
-      // Get current product stock
-      const product = await tx.product.findUnique({
-        where: { id: data.productId },
-        select: { stock: true, costPrice: true }
-      })
-
-      if (!product) {
-        throw new Error('Product not found')
-      }
-
-      const previousStock = product.stock
-      const newStock = previousStock + data.quantity
-
-      // Update product stock
+      // Mettre à jour le stock du produit
       await tx.product.update({
         where: { id: data.productId },
-        data: { 
-          stock: newStock,
-          costPrice: data.unitPrice // Update cost price to latest purchase price
+        data: {
+          stock: newStock
         }
       })
 
-      // Create inventory movement record
+      // Créer un mouvement d'inventaire avec previousStock et newStock
       await tx.inventoryMovement.create({
         data: {
           productId: data.productId,
@@ -1597,11 +1611,36 @@ export class DatabaseService {
           quantity: data.quantity,
           previousStock: previousStock,
           newStock: newStock,
-          reason: `Ravitaillement: ${data.receiptNumber || 'Sans reçu'}`,
+          reason: `Ravitaillement: ${data.receiptNumber || 'N/A'}`,
+          financialImpact: -(totalPrice), // Impact négatif car c'est un coût
           reference: `Replenishment ${replenishment.id}`,
-          notes: data.notes,
-          userId: data.userId,
-          financialImpact: -replenishment.totalPrice // Use the totalPrice directly (negative because it's a cost)
+          userId: data.userId
+        }
+      })
+
+      // Créer une alerte de péremption si une date est fournie
+      if (data.expirationDate) {
+        await tx.expirationAlert.create({
+          data: {
+            replenishmentId: replenishment.id,
+            productId: data.productId,
+            supplierId: data.supplierId,
+            expirationDate: data.expirationDate,
+            originalQuantity: data.quantity,
+            currentQuantity: data.quantity, // Initialement égal à la quantité achetée
+            isActive: true
+          }
+        })
+      }
+
+      // Créer un log d'activité
+      await tx.activityLog.create({
+        data: {
+          action: 'REPLENISHMENT_CREATED',
+          details: `Ravitaillement créé: ${data.quantity} unités`,
+          user: data.userId || 'Système',
+          category: 'REPLENISHMENT',
+          financialImpact: totalPrice
         }
       })
 

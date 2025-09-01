@@ -29,12 +29,7 @@ interface TaxRate {
   description?: string
 }
 
-interface PaymentMethod {
-  id: string
-  name: string
-  isActive: boolean
-  requiresReceipt: boolean
-}
+
 
 interface CompanyInfo {
   name: string
@@ -67,34 +62,16 @@ export default function Settings() {
   const [taxRates, setTaxRates] = useState<TaxRate[]>([])
   const [isLoadingTaxRates, setIsLoadingTaxRates] = useState(true)
 
-  // Payment Methods
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    { id: 'cash', name: 'Espèces', isActive: true, requiresReceipt: true },
-    { id: 'card', name: 'Carte bancaire', isActive: true, requiresReceipt: true },
-    { id: 'check', name: 'Chèque', isActive: true, requiresReceipt: true },
-    { id: 'transfer', name: 'Virement', isActive: true, requiresReceipt: false },
-    { id: 'paypal', name: 'PayPal', isActive: false, requiresReceipt: true }
-  ])
+
 
   // Receipt Settings
   const [receiptSettings, setReceiptSettings] = useState({
     showLogo: true,
     showTaxDetails: true,
-    showPaymentMethod: true,
     showCashierName: true,
     receiptFooter: 'Merci de votre visite !',
     autoPrint: false,
     printDuplicate: false
-  })
-
-  // Invoice Settings
-  const [invoiceSettings, setInvoiceSettings] = useState({
-    defaultDueDays: 30,
-    showTaxBreakdown: true,
-    allowPartialPayment: true,
-    autoNumbering: true,
-    prefix: 'INV-',
-    nextNumber: 1001
   })
 
   // Load tax rates on component mount
@@ -154,9 +131,8 @@ export default function Settings() {
     const settings = {
       companyInfo,
       taxRates,
-      paymentMethods,
-      receiptSettings,
-      invoiceSettings
+
+      receiptSettings
     }
     
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' })
@@ -186,9 +162,9 @@ export default function Settings() {
             // Apply imported settings
             if (settings.companyInfo) setCompanyInfo(settings.companyInfo)
             if (settings.taxRates) setTaxRates(settings.taxRates)
-            if (settings.paymentMethods) setPaymentMethods(settings.paymentMethods)
+
             if (settings.receiptSettings) setReceiptSettings(settings.receiptSettings)
-            if (settings.invoiceSettings) setInvoiceSettings(settings.invoiceSettings)
+
             
             showToast('success', 'Import réussi', 'Les paramètres ont été importés avec succès.')
           } catch (error) {
@@ -317,11 +293,7 @@ export default function Settings() {
     }
   }
 
-  const togglePaymentMethod = (id: string) => {
-    setPaymentMethods(prev => prev.map(method => 
-      method.id === id ? { ...method, isActive: !method.isActive } : method
-    ))
-  }
+
 
   const handleResetSettings = () => {
     setShowConfirmModal(true)
@@ -338,32 +310,19 @@ export default function Settings() {
       vatNumber: 'FR12345678901'
     })
     
-    setPaymentMethods([
-      { id: 'cash', name: 'Espèces', isActive: true, requiresReceipt: true },
-      { id: 'card', name: 'Carte bancaire', isActive: true, requiresReceipt: true },
-      { id: 'check', name: 'Chèque', isActive: true, requiresReceipt: true },
-      { id: 'transfer', name: 'Virement', isActive: true, requiresReceipt: false },
-      { id: 'paypal', name: 'PayPal', isActive: false, requiresReceipt: true }
-    ])
+
     
     setReceiptSettings({
       showLogo: true,
       showTaxDetails: true,
-      showPaymentMethod: true,
+
       showCashierName: true,
       receiptFooter: 'Merci de votre visite !',
       autoPrint: false,
       printDuplicate: false
     })
     
-    setInvoiceSettings({
-      defaultDueDays: 30,
-      showTaxBreakdown: true,
-      allowPartialPayment: true,
-      autoNumbering: true,
-      prefix: 'INV-',
-      nextNumber: 1001
-    })
+
     
     setShowConfirmModal(false)
     showToast('success', 'Paramètres réinitialisés', 'Tous les paramètres ont été réinitialisés aux valeurs par défaut.')
@@ -412,9 +371,7 @@ export default function Settings() {
             { id: 'suppliers', label: 'Fournisseurs', icon: Building2 },
             { id: 'categories', label: 'Catégories', icon: Building2 },
             { id: 'taxes', label: 'TVA', icon: Receipt },
-            { id: 'payments', label: 'Paiements', icon: CreditCard },
             { id: 'receipts', label: 'Reçus', icon: FileText },
-            { id: 'invoices', label: 'Factures', icon: FileText },
             { id: 'advanced', label: 'Avancé', icon: SettingsIcon }
           ].map((tab) => (
             <button
@@ -576,42 +533,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Payment Methods */}
-        {activeTab === 'payments' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900">Méthodes de paiement</h3>
-            <div className="space-y-4">
-              {paymentMethods.map((method) => (
-                <div key={method.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={method.isActive}
-                        onChange={() => togglePaymentMethod(method.id)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="font-medium">{method.name}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={method.requiresReceipt}
-                        onChange={() => setPaymentMethods(prev => prev.map(m => 
-                          m.id === method.id ? { ...m, requiresReceipt: !m.requiresReceipt } : m
-                        ))}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-600">Reçu requis</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* Receipt Settings */}
         {activeTab === 'receipts' && (
@@ -637,15 +559,7 @@ export default function Settings() {
                   />
                   <span className="text-sm font-medium">Afficher les détails de TVA</span>
                 </label>
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    checked={receiptSettings.showPaymentMethod}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, showPaymentMethod: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium">Afficher la méthode de paiement</span>
-                </label>
+
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
@@ -689,70 +603,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Invoice Settings */}
-        {activeTab === 'invoices' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900">Configuration des factures</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Délai de paiement par défaut (jours)</label>
-                <input
-                  type="number"
-                  value={invoiceSettings.defaultDueDays}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, defaultDueDays: parseInt(e.target.value) || 30 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Préfixe des factures</label>
-                <input
-                  type="text"
-                  value={invoiceSettings.prefix}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, prefix: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Prochain numéro</label>
-                <input
-                  type="number"
-                  value={invoiceSettings.nextNumber}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, nextNumber: parseInt(e.target.value) || 1001 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div className="space-y-4">
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={invoiceSettings.showTaxBreakdown}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, showTaxBreakdown: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium">Afficher le détail de la TVA</span>
-              </label>
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={invoiceSettings.allowPartialPayment}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, allowPartialPayment: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium">Autoriser les paiements partiels</span>
-              </label>
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={invoiceSettings.autoNumbering}
-                  onChange={(e) => setInvoiceSettings(prev => ({ ...prev, autoNumbering: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium">Numérotation automatique</span>
-              </label>
-            </div>
-          </div>
-        )}
+
 
         {/* Suppliers Management */}
         {activeTab === 'suppliers' && (

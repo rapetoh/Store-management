@@ -230,7 +230,7 @@ export default function AddOrderModal({ isOpen, onClose, onOrderAdded }: {
                 <option value="">Sélectionner un produit</option>
                 {availableProducts.map(product => (
                   <option key={product.id} value={product.id}>
-                    {product.name} - €{product.price} (Stock: {product.stock})
+                    {product.name} - FCFA{product.price} (Stock: {product.stock})
                   </option>
                 ))}
               </select>
@@ -275,10 +275,10 @@ export default function AddOrderModal({ isOpen, onClose, onOrderAdded }: {
                 <div key={index} className="flex items-center justify-between p-3 bg-night-50 rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-night-800">{item.productName}</p>
-                    <p className="text-sm text-night-600">Quantité: {item.quantity} × €{item.price}</p>
+                    <p className="text-sm text-night-600">Quantité: {item.quantity} × FCFA{item.price}</p>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <span className="font-semibold text-night-800">€{item.total.toFixed(2)}</span>
+                    <span className="font-semibold text-night-800">FCFA{item.total.toFixed(2)}</span>
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
@@ -292,7 +292,7 @@ export default function AddOrderModal({ isOpen, onClose, onOrderAdded }: {
               <div className="pt-3 border-t border-night-100">
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-semibold text-night-800">Total</span>
-                  <span className="text-xl font-bold text-primary-600">€{getTotalAmount().toFixed(2)}</span>
+                  <span className="text-xl font-bold text-primary-600">FCFA{getTotalAmount().toFixed(2)}</span>
                 </div>
               </div>
             </div>
