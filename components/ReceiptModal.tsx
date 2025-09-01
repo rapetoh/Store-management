@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { X, Printer, Download, Receipt } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useCompanyInfo } from '../hooks/useCompanyInfo'
+import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 
 interface SaleItem {
   id: string
@@ -42,6 +43,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
   const printRef = useRef<HTMLDivElement>(null)
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('')
   const { companyInfo, isLoading: isLoadingCompany } = useCompanyInfo()
+  const { receiptSettings } = useReceiptSettings()
 
   // Generate QR code data
   const formatDate = (dateString: string) => {
@@ -65,7 +67,129 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
     return qrText
   }
 
-  // Generate QR code when sale changes
+  const handlePrint = useCallback(() => {
+    if (printRef.current) {
+      const printContent = printRef.current.innerHTML
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        // If duplicate printing is enabled, print twice
+        const copies = receiptSettings.printDuplicate ? 2 : 1
+        
+        for (let i = 0; i < copies; i++) {
+          if (i > 0) {
+            // Add page break between copies
+            printWindow.document.write('<div style="page-break-before: always;"></div>')
+          }
+          
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>Reçu de vente${receiptSettings.printDuplicate ? ' - Copie ' + (i + 1) : ''}</title>
+                <style>
+                  @media print {
+                    body { 
+                      font-family: 'Courier New', monospace; 
+                      margin: 0; 
+                      padding: 10px;
+                      font-size: 12px;
+                      line-height: 1.2;
+                    }
+                    .receipt {
+                      width: 80mm;
+                      margin: 0 auto;
+                      font-family: 'Courier New', monospace;
+                      font-size: 10px;
+                      line-height: 1.1;
+                    }
+                    .header {
+                      text-align: center;
+                      border-bottom: 1px dashed #000;
+                      padding-bottom: 10px;
+                      margin-bottom: 10px;
+                    }
+                    .header h1 {
+                      margin: 0;
+                      font-size: 16px;
+                      font-weight: bold;
+                    }
+                    .header h2 {
+                      margin: 5px 0;
+                      font-size: 14px;
+                    }
+                    .info {
+                      margin-bottom: 10px;
+                      font-size: 11px;
+                    }
+                    .items {
+                      margin-bottom: 10px;
+                    }
+                    .item {
+                      display: flex;
+                      justify-content: space-between;
+                      margin-bottom: 3px;
+                      font-size: 11px;
+                    }
+                    .item-name {
+                      flex: 1;
+                    }
+                    .item-details {
+                      text-align: right;
+                      min-width: 80px;
+                    }
+                    .totals {
+                      border-top: 1px dashed #000;
+                      padding-top: 10px;
+                      margin-top: 10px;
+                    }
+                    .total-line {
+                      display: flex;
+                      justify-content: space-between;
+                      margin-bottom: 2px;
+                      font-size: 11px;
+                    }
+                    .total-line.final {
+                      font-weight: bold;
+                      font-size: 12px;
+                      border-top: 1px solid #000;
+                      padding-top: 5px;
+                      margin-top: 5px;
+                    }
+                    .footer {
+                      text-align: center;
+                      margin-top: 15px;
+                      font-size: 10px;
+                      border-top: 1px dashed #000;
+                      padding-top: 10px;
+                    }
+                    .qr-code {
+                      text-align: center;
+                      margin: 10px 0;
+                      font-size: 8px;
+                    }
+                    @page {
+                      margin: 0;
+                      size: 80mm auto;
+                    }
+                  }
+                </style>
+              </head>
+              <body>
+                ${printContent}
+              </body>
+            </html>
+          `)
+        }
+        
+        printWindow.document.close()
+        printWindow.focus()
+        printWindow.print()
+        printWindow.close()
+      }
+    }
+  }, [receiptSettings.printDuplicate])
+
+  // Generate QR code when sale changes and handle auto-print
   useEffect(() => {
     if (sale) {
       const qrData = generateQRData()
@@ -78,123 +202,20 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
         }
       }).then(url => {
         setQrCodeDataUrl(url)
+        
+        // Auto-print if enabled
+        if (receiptSettings.autoPrint) {
+          setTimeout(() => {
+            handlePrint()
+          }, 500) // Small delay to ensure QR code is generated
+        }
       }).catch(err => {
         console.error('Error generating QR code:', err)
       })
     }
-  }, [sale])
+  }, [sale, receiptSettings.autoPrint, handlePrint])
 
   if (!isOpen || !sale) return null
-
-  const handlePrint = () => {
-    if (printRef.current) {
-      const printWindow = window.open('', '_blank')
-      if (printWindow) {
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Reçu de vente</title>
-              <style>
-                @media print {
-                  body { 
-                    font-family: 'Courier New', monospace; 
-                    margin: 0; 
-                    padding: 10px;
-                    font-size: 12px;
-                    line-height: 1.2;
-                  }
-                                     .receipt {
-                     width: 80mm;
-                     margin: 0 auto;
-                     font-family: 'Courier New', monospace;
-                     font-size: 10px;
-                     line-height: 1.1;
-                   }
-                  .header {
-                    text-align: center;
-                    border-bottom: 1px dashed #000;
-                    padding-bottom: 10px;
-                    margin-bottom: 10px;
-                  }
-                  .header h1 {
-                    margin: 0;
-                    font-size: 16px;
-                    font-weight: bold;
-                  }
-                  .header h2 {
-                    margin: 5px 0;
-                    font-size: 14px;
-                  }
-                  .info {
-                    margin-bottom: 10px;
-                    font-size: 11px;
-                  }
-                  .items {
-                    margin-bottom: 10px;
-                  }
-                  .item {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 3px;
-                    font-size: 11px;
-                  }
-                  .item-name {
-                    flex: 1;
-                  }
-                  .item-details {
-                    text-align: right;
-                    min-width: 80px;
-                  }
-                  .totals {
-                    border-top: 1px dashed #000;
-                    padding-top: 10px;
-                    margin-top: 10px;
-                  }
-                  .total-line {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 2px;
-                    font-size: 11px;
-                  }
-                  .total-line.final {
-                    font-weight: bold;
-                    font-size: 12px;
-                    border-top: 1px solid #000;
-                    padding-top: 5px;
-                    margin-top: 5px;
-                  }
-                  .footer {
-                    text-align: center;
-                    margin-top: 15px;
-                    font-size: 10px;
-                    border-top: 1px dashed #000;
-                    padding-top: 10px;
-                  }
-                  .qr-code {
-                    text-align: center;
-                    margin: 10px 0;
-                    font-size: 8px;
-                  }
-                  @page {
-                    margin: 0;
-                    size: 80mm auto;
-                  }
-                }
-              </style>
-            </head>
-            <body>
-              ${printRef.current.innerHTML}
-            </body>
-          </html>
-        `)
-        printWindow.document.close()
-        printWindow.focus()
-        printWindow.print()
-        printWindow.close()
-      }
-    }
-  }
 
   const handleDownloadPDF = () => {
     // Pour l'instant, on simule le téléchargement
@@ -244,6 +265,13 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
           <div ref={printRef} className="receipt bg-white border border-gray-200 rounded-lg p-4 max-w-sm mx-auto">
             {/* Header */}
             <div className="header text-center border-b border-dashed border-gray-300 pb-3 mb-3">
+              {receiptSettings.showLogo && (
+                <div className="mb-2">
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg mx-auto flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">S</span>
+                  </div>
+                </div>
+              )}
               <h1 className="text-lg font-bold text-gray-900">{companyInfo.name || 'StockFlow'}</h1>
               <h2 className="text-sm text-gray-600">Gestion de Stock</h2>
               <p className="text-xs text-gray-500">{companyInfo.address || 'Adresse non configurée'}</p>
@@ -264,10 +292,12 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
                 <span>Client:</span>
                 <span>{sale.customer || 'Client anonyme'}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Caissier:</span>
-                <span>{sale.cashier || 'Caissier actuel'}</span>
-              </div>
+              {receiptSettings.showCashierName && (
+                <div className="flex justify-between">
+                  <span>Caissier:</span>
+                  <span>{sale.cashier || 'Caissier actuel'}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Paiement:</span>
                 <span className="capitalize">{sale.paymentMethod}</span>
@@ -315,7 +345,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
                   <span>-{sale.discountAmount.toLocaleString('fr-FR')} FCFA</span>
                 </div>
               )}
-              {sale.taxAmount && sale.taxAmount > 0 && (
+              {receiptSettings.showTaxDetails && sale.taxAmount && sale.taxAmount > 0 && (
                 <div className="total-line">
                   <span>TVA:</span>
                   <span>{sale.taxAmount.toLocaleString('fr-FR')} FCFA</span>
@@ -347,7 +377,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
 
             {/* Footer */}
             <div className="footer text-center mt-4 pt-3 border-t border-dashed border-gray-300">
-              <p className="text-xs text-gray-500 mb-1">Merci de votre visite !</p>
+              <p className="text-xs text-gray-500 mb-1">{receiptSettings.receiptFooter}</p>
       
               <p className="text-xs text-gray-400 mt-2">Reçu généré automatiquement</p>
             </div>

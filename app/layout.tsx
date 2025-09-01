@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ToastContainer } from '@/components/Toast'
 import { universalLogger } from '@/lib/universalLogger'
+import { ReceiptSettingsProvider } from '@/contexts/ReceiptSettingsContext'
 
 // Initialize the universal logger
 if (typeof window !== 'undefined') {
@@ -24,8 +25,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={inter.className}>
-        {children}
-        <ToastContainer />
+        <ReceiptSettingsProvider>
+          {children}
+          <ToastContainer />
+        </ReceiptSettingsProvider>
       </body>
     </html>
   )

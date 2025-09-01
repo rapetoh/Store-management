@@ -19,6 +19,7 @@ import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
 import SupplierManagement from './SupplierManagement'
 import CategoryManagement from './CategoryManagement'
+import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 
 interface TaxRate {
   id: string
@@ -48,36 +49,27 @@ export default function Settings() {
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
   const [isLoading, setIsLoading] = useState(false)
 
-  // Company Information
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
-    name: 'StockFlow',
-    address: '123 Rue du Commerce\n75001 Paris, France',
-    phone: '+33 1 23 45 67 89',
-    email: 'contact@stockflow.fr',
-    siret: '123 456 789 00012',
-    vatNumber: 'FR12345678901'
-  })
+  // Get settings from context
+  const { receiptSettings, companyInfo, refreshSettings } = useReceiptSettings()
+
+  // Local form state for editing
+  const [localReceiptSettings, setLocalReceiptSettings] = useState(receiptSettings)
+  const [localCompanyInfo, setLocalCompanyInfo] = useState(companyInfo)
 
   // Tax Rates
   const [taxRates, setTaxRates] = useState<TaxRate[]>([])
   const [isLoadingTaxRates, setIsLoadingTaxRates] = useState(true)
 
-
-
-  // Receipt Settings
-  const [receiptSettings, setReceiptSettings] = useState({
-    showLogo: true,
-    showTaxDetails: true,
-    showCashierName: true,
-    receiptFooter: 'Merci de votre visite !',
-    autoPrint: false,
-    printDuplicate: false
-  })
-
   // Load tax rates on component mount
   useEffect(() => {
     loadTaxRates()
   }, [])
+
+  // Sync local state with context values
+  useEffect(() => {
+    setLocalReceiptSettings(receiptSettings)
+    setLocalCompanyInfo(companyInfo)
+  }, [receiptSettings, companyInfo])
 
   const loadTaxRates = async () => {
     try {
@@ -96,6 +88,8 @@ export default function Settings() {
       setIsLoadingTaxRates(false)
     }
   }
+
+
 
   const logActivity = async (action: string, details: string, financialImpact?: number) => {
     try {
@@ -123,8 +117,46 @@ export default function Settings() {
     }
   }
 
-  const handleSaveSettings = () => {
-    showToast('success', 'Paramètres sauvegardés', 'Tous les paramètres ont été sauvegardés avec succès.')
+  const handleSaveSettings = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Prepare settings data
+      const settingsData = {
+        'receipt.showLogo': localReceiptSettings.showLogo,
+        'receipt.showTaxDetails': localReceiptSettings.showTaxDetails,
+        'receipt.showCashierName': localReceiptSettings.showCashierName,
+        'receipt.receiptFooter': localReceiptSettings.receiptFooter,
+        'receipt.autoPrint': localReceiptSettings.autoPrint,
+        'receipt.printDuplicate': localReceiptSettings.printDuplicate,
+        'company.name': localCompanyInfo.name,
+        'company.address': localCompanyInfo.address,
+        'company.phone': localCompanyInfo.phone,
+        'company.email': localCompanyInfo.email,
+        'company.siret': localCompanyInfo.siret,
+        'company.vatNumber': localCompanyInfo.vatNumber
+      }
+      
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settingsData),
+      })
+
+      if (response.ok) {
+        await refreshSettings() // Refresh the context
+        showToast('success', 'Paramètres sauvegardés', 'Tous les paramètres ont été sauvegardés avec succès.')
+      } else {
+        throw new Error('Failed to save settings')
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      showToast('error', 'Erreur', 'Impossible de sauvegarder les paramètres')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleExportSettings = () => {
@@ -156,17 +188,46 @@ export default function Settings() {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
         const reader = new FileReader()
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           try {
             const settings = JSON.parse(e.target?.result as string)
-            // Apply imported settings
-            if (settings.companyInfo) setCompanyInfo(settings.companyInfo)
-            if (settings.taxRates) setTaxRates(settings.taxRates)
-
-            if (settings.receiptSettings) setReceiptSettings(settings.receiptSettings)
-
             
-            showToast('success', 'Import réussi', 'Les paramètres ont été importés avec succès.')
+            // Prepare settings data for import
+            const settingsData: Record<string, string> = {}
+            
+            if (settings.companyInfo) {
+              settingsData['company.name'] = settings.companyInfo.name
+              settingsData['company.address'] = settings.companyInfo.address
+              settingsData['company.phone'] = settings.companyInfo.phone
+              settingsData['company.email'] = settings.companyInfo.email
+              settingsData['company.siret'] = settings.companyInfo.siret
+              settingsData['company.vatNumber'] = settings.companyInfo.vatNumber
+            }
+            
+            if (settings.receiptSettings) {
+              settingsData['receipt.showLogo'] = settings.receiptSettings.showLogo.toString()
+              settingsData['receipt.showTaxDetails'] = settings.receiptSettings.showTaxDetails.toString()
+              settingsData['receipt.showCashierName'] = settings.receiptSettings.showCashierName.toString()
+              settingsData['receipt.receiptFooter'] = settings.receiptSettings.receiptFooter
+              settingsData['receipt.autoPrint'] = settings.receiptSettings.autoPrint.toString()
+              settingsData['receipt.printDuplicate'] = settings.receiptSettings.printDuplicate.toString()
+            }
+            
+            // Save imported settings to database
+            const response = await fetch('/api/settings', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(settingsData),
+            })
+            
+            if (response.ok) {
+              await refreshSettings() // Refresh the context
+              showToast('success', 'Import réussi', 'Les paramètres ont été importés avec succès.')
+            } else {
+              throw new Error('Failed to save imported settings')
+            }
           } catch (error) {
             showToast('error', 'Erreur d\'import', 'Le fichier n\'est pas valide.')
           }
@@ -301,7 +362,7 @@ export default function Settings() {
 
   const confirmReset = () => {
     // Reset all settings to default values
-    setCompanyInfo({
+    setLocalCompanyInfo({
       name: 'StockFlow',
       address: '123 Rue du Commerce\n75001 Paris, France',
       phone: '+33 1 23 45 67 89',
@@ -310,19 +371,14 @@ export default function Settings() {
       vatNumber: 'FR12345678901'
     })
     
-
-    
-    setReceiptSettings({
+    setLocalReceiptSettings({
       showLogo: true,
       showTaxDetails: true,
-
       showCashierName: true,
       receiptFooter: 'Merci de votre visite !',
       autoPrint: false,
       printDuplicate: false
     })
-    
-
     
     setShowConfirmModal(false)
     showToast('success', 'Paramètres réinitialisés', 'Tous les paramètres ont été réinitialisés aux valeurs par défaut.')
@@ -401,16 +457,16 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nom de l'entreprise</label>
                 <input
                   type="text"
-                  value={companyInfo.name}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, name: e.target.value }))}
+                  value={localCompanyInfo.name}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
                 <textarea
-                  value={companyInfo.address}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, address: e.target.value }))}
+                  value={localCompanyInfo.address}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, address: e.target.value }))}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -419,8 +475,8 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
                 <input
                   type="tel"
-                  value={companyInfo.phone}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, phone: e.target.value }))}
+                  value={localCompanyInfo.phone}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, phone: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -428,8 +484,8 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                 <input
                   type="email"
-                  value={companyInfo.email}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, email: e.target.value }))}
+                  value={localCompanyInfo.email}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -437,8 +493,8 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">SIRET</label>
                 <input
                   type="text"
-                  value={companyInfo.siret}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, siret: e.target.value }))}
+                  value={localCompanyInfo.siret}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, siret: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -446,8 +502,8 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de TVA</label>
                 <input
                   type="text"
-                  value={companyInfo.vatNumber}
-                  onChange={(e) => setCompanyInfo(prev => ({ ...prev, vatNumber: e.target.value }))}
+                  value={localCompanyInfo.vatNumber}
+                  onChange={(e) => setLocalCompanyInfo(prev => ({ ...prev, vatNumber: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -544,8 +600,8 @@ export default function Settings() {
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={receiptSettings.showLogo}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, showLogo: e.target.checked }))}
+                    checked={localReceiptSettings.showLogo}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, showLogo: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium">Afficher le logo</span>
@@ -553,8 +609,8 @@ export default function Settings() {
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={receiptSettings.showTaxDetails}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, showTaxDetails: e.target.checked }))}
+                    checked={localReceiptSettings.showTaxDetails}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, showTaxDetails: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium">Afficher les détails de TVA</span>
@@ -563,8 +619,8 @@ export default function Settings() {
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={receiptSettings.showCashierName}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, showCashierName: e.target.checked }))}
+                    checked={localReceiptSettings.showCashierName}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, showCashierName: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium">Afficher le nom du caissier</span>
@@ -574,8 +630,8 @@ export default function Settings() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Message de fin</label>
                   <textarea
-                    value={receiptSettings.receiptFooter}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, receiptFooter: e.target.value }))}
+                    value={localReceiptSettings.receiptFooter}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, receiptFooter: e.target.value }))}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -583,8 +639,8 @@ export default function Settings() {
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={receiptSettings.autoPrint}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, autoPrint: e.target.checked }))}
+                    checked={localReceiptSettings.autoPrint}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, autoPrint: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium">Impression automatique</span>
@@ -592,8 +648,8 @@ export default function Settings() {
                 <label className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    checked={receiptSettings.printDuplicate}
-                    onChange={(e) => setReceiptSettings(prev => ({ ...prev, printDuplicate: e.target.checked }))}
+                    checked={localReceiptSettings.printDuplicate}
+                    onChange={(e) => setLocalReceiptSettings(prev => ({ ...prev, printDuplicate: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium">Imprimer en double</span>
