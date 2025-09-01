@@ -246,7 +246,52 @@ export class DatabaseService {
     address?: string
     loyaltyCard?: string
   }) {
-    return await prisma.customer.create({ data })
+    // Generate auto-incremented loyalty card if not provided
+    let loyaltyCard = data.loyaltyCard
+    if (!loyaltyCard) {
+      loyaltyCard = await this.generateNextLoyaltyCard()
+    }
+    
+    return await prisma.customer.create({ 
+      data: { ...data, loyaltyCard }
+    })
+  }
+
+  static async generateNextLoyaltyCard(): Promise<string> {
+    // Find the highest existing loyalty card number
+    const customers = await prisma.customer.findMany({
+      where: {
+        loyaltyCard: {
+          startsWith: 'LOY'
+        }
+      },
+      select: {
+        loyaltyCard: true
+      },
+      orderBy: {
+        loyaltyCard: 'desc'
+      },
+      take: 1
+    })
+
+    if (customers.length === 0) {
+      // No existing loyalty cards, start with LOY001
+      return 'LOY001'
+    }
+
+    const lastLoyaltyCard = customers[0].loyaltyCard
+    if (!lastLoyaltyCard) {
+      return 'LOY001'
+    }
+
+    // Extract the number part and increment it
+    const match = lastLoyaltyCard.match(/LOY(\d+)/)
+    if (!match) {
+      return 'LOY001'
+    }
+
+    const nextNumber = parseInt(match[1]) + 1
+    return `LOY${nextNumber.toString().padStart(3, '0')}`
   }
 
   static async updateCustomer(id: string, data: any) {
@@ -685,9 +730,17 @@ export class DatabaseService {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
+    // Calculate yesterday
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
     // Calculate Jan 1 of current year
     const currentYear = new Date().getFullYear()
     const janFirst = new Date(currentYear, 0, 1) // January 1st of current year
+    
+    // Calculate Jan 1 of previous year
+    const previousYear = currentYear - 1
+    const janFirstPreviousYear = new Date(previousYear, 0, 1)
 
     const [
       totalProducts,
@@ -698,6 +751,8 @@ export class DatabaseService {
       totalRevenue,
       todayRevenue,
       yearRevenue,
+      yesterdayRevenue,
+      previousYearRevenue,
     ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.product.count({
@@ -742,6 +797,28 @@ export class DatabaseService {
           },
         },
       }),
+      prisma.sale.aggregate({
+        _sum: {
+          finalAmount: true,
+        },
+        where: {
+          saleDate: {
+            gte: yesterday,
+            lt: today,
+          },
+        },
+      }),
+      prisma.sale.aggregate({
+        _sum: {
+          finalAmount: true,
+        },
+        where: {
+          saleDate: {
+            gte: janFirstPreviousYear,
+            lt: janFirst,
+          },
+        },
+      }),
     ])
 
     return {
@@ -753,6 +830,8 @@ export class DatabaseService {
       totalRevenue: totalRevenue._sum.finalAmount || 0,
       todayRevenue: todayRevenue._sum.finalAmount || 0,
       yearRevenue: yearRevenue._sum.finalAmount || 0,
+      yesterdayRevenue: yesterdayRevenue._sum.finalAmount || 0,
+      previousYearRevenue: previousYearRevenue._sum.finalAmount || 0,
     }
   }
 

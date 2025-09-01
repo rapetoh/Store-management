@@ -130,7 +130,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Barcode scanner hook
-  const { scannedBarcode } = useBarcodeScanner()
+  const { barcodeBuffer: scannedBarcode } = useBarcodeScanner()
   const [adjustmentData, setAdjustmentData] = useState({
     productId: '',
     productName: '',
@@ -760,13 +760,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
             <Download className="w-4 h-4" />
             <span>Exporter</span>
           </button>
-          <button 
-            onClick={() => {/* TODO: New operation */}}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouvelle opération</span>
-          </button>
+
         </div>
       </div>
 

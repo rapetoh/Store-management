@@ -46,12 +46,16 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { notes, paymentMethod } = body
+    const { notes, paymentMethod, items, totalAmount, taxAmount, finalAmount } = body
 
     // Update sale with new data
     const updatedSale = await DatabaseService.updateSale(params.id, {
       notes,
-      paymentMethod
+      paymentMethod,
+      items,
+      totalAmount,
+      taxAmount,
+      finalAmount
     })
 
     // Transform the updated sale data to match the frontend interface

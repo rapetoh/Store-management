@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Users, Save, Loader2 } from 'lucide-react'
 
 interface AddCustomerModalProps {
@@ -19,6 +19,25 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }: A
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+
+  // Auto-fill loyalty card when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchNextLoyaltyCard()
+    }
+  }, [isOpen])
+
+  const fetchNextLoyaltyCard = async () => {
+    try {
+      const response = await fetch('/api/customers/next-loyalty-card')
+      if (response.ok) {
+        const data = await response.json()
+        setFormData(prev => ({ ...prev, loyaltyCard: data.loyaltyCard }))
+      }
+    } catch (error) {
+      console.error('Error fetching next loyalty card:', error)
+    }
+  }
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {}
@@ -153,14 +172,14 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }: A
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Carte de fidélité
+                Carte de fidélité (auto-générée)
               </label>
               <input
                 type="text"
                 value={formData.loyaltyCard}
-                onChange={(e) => setFormData(prev => ({ ...prev, loyaltyCard: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
                 placeholder="Numéro de carte"
+                readOnly
               />
             </div>
           </div>

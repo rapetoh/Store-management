@@ -59,27 +59,8 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
   const generateQRData = () => {
     if (!sale) return ''
     
-    const itemsText = sale.items && sale.items.length > 0 
-      ? sale.items.map(item => `- ${item.productName}: ${item.quantity} x ${item.unitPrice.toLocaleString('fr-FR')} FCFA = ${item.totalPrice.toLocaleString('fr-FR')} FCFA`).join('\n')
-      : 'Aucun article'
-
-    const qrText = `${companyInfo.name || 'StockFlow'} - RECU DE VENTE
-ID: ${sale.id}
-Date: ${formatDate(sale.saleDate || sale.date || new Date().toISOString())}
-Client: ${sale.customer || 'Client anonyme'}
-Caissier: ${sale.cashier || 'Caissier actuel'}
-Paiement: ${sale.paymentMethod}
-
-ARTICLES:
-${itemsText}
-
-Sous-total: ${(sale.totalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
-${sale.discountAmount && sale.discountAmount > 0 ? `Remise: -${sale.discountAmount.toLocaleString('fr-FR')} FCFA\n` : ''}${sale.taxAmount && sale.taxAmount > 0 ? `TVA: ${sale.taxAmount.toLocaleString('fr-FR')} FCFA\n` : ''}TOTAL: ${(sale.finalAmount || sale.total || 0).toLocaleString('fr-FR')} FCFA
-
-${sale.notes ? `Notes: ${sale.notes}` : ''}
-
-Merci de votre visite!
-${companyInfo.name || 'StockFlow'} - ${companyInfo.address ? companyInfo.address.split('\n')[0] : 'Adresse non configurée'}`
+    // Simplified QR code - just the sale ID
+    const qrText = `${sale.id}`
 
     return qrText
   }
@@ -346,13 +327,7 @@ ${companyInfo.name || 'StockFlow'} - ${companyInfo.address ? companyInfo.address
               </div>
             </div>
 
-            {/* Notes */}
-            {sale.notes && (
-              <div className="mt-3 p-2 bg-gray-50 rounded text-xs">
-                <div className="font-medium text-gray-700 mb-1">Notes:</div>
-                <div className="text-gray-600">{sale.notes}</div>
-              </div>
-            )}
+
 
                          {/* QR Code */}
              <div className="qr-code mt-3 text-center">
@@ -367,7 +342,7 @@ ${companyInfo.name || 'StockFlow'} - ${companyInfo.address ? companyInfo.address
                    <span className="text-xs text-gray-500">QR</span>
                  </div>
                )}
-               <div className="text-xs text-gray-500 font-mono">{sale.id}</div>
+               <div className="text-xs text-gray-500 font-mono">ID: {sale.id}</div>
              </div>
 
             {/* Footer */}

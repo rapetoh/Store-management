@@ -49,7 +49,7 @@ export default function EditCustomerModal({ isOpen, onClose, onCustomerUpdated, 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {}
     
-    if (!formData.name?.trim()) newErrors.name = 'Le nom est requis'
+    if (!formData.name.trim()) newErrors.name = 'Le nom est requis'
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email invalide'
     if (formData.phone && !/^[\+]?[0-9\s\-\(\)]{8,}$/.test(formData.phone)) newErrors.phone = 'Numéro de téléphone invalide'
 
@@ -179,14 +179,14 @@ export default function EditCustomerModal({ isOpen, onClose, onCustomerUpdated, 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Carte de fidélité
+                Carte de fidélité (auto-générée)
               </label>
               <input
                 type="text"
                 value={formData.loyaltyCard || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, loyaltyCard: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
                 placeholder="Numéro de carte"
+                readOnly
               />
             </div>
           </div>

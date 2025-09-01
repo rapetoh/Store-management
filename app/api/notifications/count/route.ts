@@ -121,7 +121,7 @@ async function createStockNotification(type: string, product: any) {
   })
 
   if (!existingNotification) {
-    let title, message, priority
+    let title: string, message: string, priority: string
 
     switch (type) {
       case 'stock_out':
@@ -137,6 +137,11 @@ async function createStockNotification(type: string, product: any) {
       case 'stock_low':
         title = 'Stock faible'
         message = `Le produit "${product.name}" est en stock faible (${product.stock} unités restantes)`
+        priority = 'normal'
+        break
+      default:
+        title = 'Notification de stock'
+        message = `Mise à jour du stock pour ${product.name}`
         priority = 'normal'
         break
     }

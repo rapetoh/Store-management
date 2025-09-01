@@ -230,6 +230,7 @@ export class NotificationService {
       title: 'Nouvelle vente',
       message: `Vente effectuée pour ${saleData.total.toLocaleString('fr-FR')} FCFA`,
       priority: 'normal',
+      productId: undefined, // Sales don't have a specific product
       metadata: {
         saleId: saleData.id,
         total: saleData.total,

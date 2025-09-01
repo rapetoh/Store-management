@@ -92,19 +92,28 @@ export default function Sales() {
     loadSales()
   }, [searchParams])
 
-  // Clear URL parameters when manually navigating to Sales tab
+  // Handle URL parameters for date filtering
   useEffect(() => {
     const section = searchParams.get('section')
     if (section === 'sales') {
-      // If we're on sales tab but no local date range is set, clear URL parameters
-      if (!dateRange.startDate && !dateRange.endDate) {
+      const urlStartDate = searchParams.get('startDate')
+      const urlEndDate = searchParams.get('endDate')
+      
+      // If URL has date parameters, set them as local date range
+      if (urlStartDate && urlEndDate) {
+        setDateRange({
+          startDate: urlStartDate,
+          endDate: urlEndDate
+        })
+        
+        // Clear URL parameters after setting local state
         const url = new URL(window.location.href)
         url.searchParams.delete('startDate')
         url.searchParams.delete('endDate')
         window.history.replaceState({}, '', url.toString())
       }
     }
-  }, [searchParams, dateRange])
+  }, [searchParams])
 
   // Reload sales when local date range changes
   useEffect(() => {
@@ -128,14 +137,10 @@ export default function Sales() {
       let url = '/api/sales'
       if (urlStartDate && urlEndDate) {
         url += `?startDate=${urlStartDate}&endDate=${urlEndDate}`
-        console.log('Fetching sales with date range:', urlStartDate, 'to', urlEndDate)
-      } else {
-        console.log('Fetching all sales (no date filter)')
       }
       
       const response = await fetch(url)
       const data = await response.json()
-      console.log('Sales API response:', data)
       setSales(data)
     } catch (error) {
       console.error('Error loading sales:', error)

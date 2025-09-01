@@ -67,6 +67,8 @@ export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
     totalRevenue: 0,
     todayRevenue: 0,
     yearRevenue: 0,
+    yesterdayRevenue: 0,
+    previousYearRevenue: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
@@ -145,6 +147,12 @@ export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
     }
   }
 
+  const calculatePercentageChange = (current: number, previous: number): string => {
+    if (previous === 0) return current > 0 ? '+100%' : '0%'
+    const change = ((current - previous) / previous) * 100
+    return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`
+  }
+
   const handleAddProduct = () => {
     showToast('success', 'Produit ajouté', 'Le produit a été ajouté avec succès !')
   }
@@ -219,13 +227,17 @@ export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
         </div>
         <div className="flex space-x-3">
           <button 
-            onClick={() => setShowAddProductModal(true)}
+            onClick={() => {
+              window.location.href = '/?section=products'
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Ajouter un produit
           </button>
           <button 
-            onClick={() => setShowQuickSaleModal(true)}
+            onClick={() => {
+              window.location.href = '/?section=sales'
+            }}
             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
           >
             Nouvelle vente
@@ -236,10 +248,28 @@ export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { title: 'Chiffre d\'affaire', value: isLoading ? '...' : `${(stats?.yearRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: DollarSign, color: 'bg-blue-500', change: '', isClickable: true, handler: handleRevenueCardClick },
-          { title: 'Ventes Aujourd\'hui', value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, icon: TrendingUp, color: 'bg-green-500', change: '', isClickable: true, handler: handleTodaySalesCardClick },
+          { 
+            title: 'Chiffre d\'affaire', 
+            value: isLoading ? '...' : `${(stats?.yearRevenue || 0).toLocaleString('fr-FR')} FCFA`, 
+            icon: DollarSign, 
+            color: 'bg-blue-500', 
+            change: calculatePercentageChange(stats?.yearRevenue || 0, stats?.previousYearRevenue || 0), 
+            comparisonText: 'vs année précédente', 
+            isClickable: true, 
+            handler: handleRevenueCardClick 
+          },
+          { 
+            title: 'Ventes Aujourd\'hui', 
+            value: isLoading ? '...' : `${(stats?.todayRevenue || 0).toLocaleString('fr-FR')} FCFA`, 
+            icon: TrendingUp, 
+            color: 'bg-green-500', 
+            change: calculatePercentageChange(stats?.todayRevenue || 0, stats?.yesterdayRevenue || 0), 
+            comparisonText: 'vs hier', 
+            isClickable: true, 
+            handler: handleTodaySalesCardClick 
+          },
           { title: 'Alertes Stock', value: isLoading ? '...' : (stats?.lowStockProducts || 0).toString(), icon: AlertTriangle, color: 'bg-red-500', change: '', isClickable: true, handler: handleStockAlertsCardClick },
-          { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '', isClickable: false, handler: null },
+          { title: 'Clients Actifs', value: isLoading ? '...' : (stats?.totalCustomers || 0).toString(), icon: Users, color: 'bg-purple-500', change: '', isClickable: true, handler: () => window.location.href = '/?section=customers' },
         ].map((stat, index) => (
           <div 
             key={stat.title} 
@@ -256,17 +286,21 @@ export default function Dashboard({ onReplenishmentRequest }: DashboardProps) {
               </div>
             </div>
             <div className="flex items-center mt-4">
-              {stat.change.startsWith('+') ? (
-                <ArrowUpRight className="w-4 h-4 text-green-500" />
-              ) : (
-                <ArrowDownRight className="w-4 h-4 text-red-500" />
+              {index < 2 && (
+                <>
+                  {stat.change.startsWith('+') ? (
+                    <ArrowUpRight className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <ArrowDownRight className="w-4 h-4 text-red-500" />
+                  )}
+                  <span className={`text-sm font-medium ${
+                    stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {stat.change}
+                  </span>
+                  <span className="text-sm text-gray-600 ml-1">{stat.comparisonText}</span>
+                </>
               )}
-              <span className={`text-sm font-medium ${
-                stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.change}
-              </span>
-              <span className="text-sm text-gray-600 ml-1">vs mois dernier</span>
             </div>
           </div>
         ))}

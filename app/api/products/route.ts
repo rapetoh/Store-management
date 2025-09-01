@@ -192,9 +192,11 @@ export async function POST(request: NextRequest) {
       let nextNumber = 1
       if (existingProducts.length > 0) {
         const lastSku = existingProducts[0].sku
-        const match = lastSku.match(new RegExp(`^${categoryPrefix}-(\\d+)$`))
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1
+        if (lastSku) {
+          const match = lastSku.match(new RegExp(`^${categoryPrefix}-(\\d+)$`))
+          if (match) {
+            nextNumber = parseInt(match[1]) + 1
+          }
         }
       }
 

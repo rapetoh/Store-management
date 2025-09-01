@@ -391,7 +391,6 @@ export default function CategoryManagement() {
         message={`Êtes-vous sûr de vouloir supprimer la catégorie "${selectedCategory?.name}" ? Cette action ne peut pas être annulée.`}
         confirmText="Supprimer"
         cancelText="Annuler"
-        confirmColor="red"
       />
     </div>
   )
