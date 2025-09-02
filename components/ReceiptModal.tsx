@@ -3,7 +3,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { X, Printer, Download, Receipt } from 'lucide-react'
 import QRCode from 'qrcode'
-import { useCompanyInfo } from '../hooks/useCompanyInfo'
 import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 
 interface SaleItem {
@@ -42,8 +41,7 @@ interface ReceiptModalProps {
 export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('')
-  const { companyInfo, isLoading: isLoadingCompany } = useCompanyInfo()
-  const { receiptSettings } = useReceiptSettings()
+  const { companyInfo, receiptSettings } = useReceiptSettings()
 
   // Generate QR code data
   const formatDate = (dateString: string) => {
@@ -65,6 +63,19 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
     const qrText = `${sale.id}`
 
     return qrText
+  }
+
+  const generateLogoText = () => {
+    if (!companyInfo.name) return 'S'
+    
+    const words = companyInfo.name.trim().split(/\s+/)
+    if (words.length === 1) {
+      // Single word: take first letter
+      return words[0].charAt(0).toUpperCase()
+    } else {
+      // Multiple words: take first letter of each word
+      return words.map((word: string) => word.charAt(0).toUpperCase()).join('')
+    }
   }
 
   const handlePrint = useCallback(() => {
@@ -107,6 +118,19 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
                       border-bottom: 1px dashed #000;
                       padding-bottom: 10px;
                       margin-bottom: 10px;
+                    }
+                    .logo {
+                      width: 48px;
+                      height: 48px;
+                      background: #2563eb;
+                      border-radius: 8px;
+                      margin: 0 auto 8px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      color: white;
+                      font-weight: bold;
+                      font-size: 18px;
                     }
                     .header h1 {
                       margin: 0;
@@ -175,7 +199,10 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
                 </style>
               </head>
               <body>
-                ${printContent}
+                ${printContent.replace(
+                  /<span class="text-white font-bold text-lg">[^<]*<\/span>/g,
+                  `<span class="text-white font-bold text-lg">${generateLogoText()}</span>`
+                )}
               </body>
             </html>
           `)
@@ -268,7 +295,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
               {receiptSettings.showLogo && (
                 <div className="mb-2">
                   <div className="w-12 h-12 bg-blue-600 rounded-lg mx-auto flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">S</span>
+                    <span className="text-white font-bold text-lg">{generateLogoText()}</span>
                   </div>
                 </div>
               )}

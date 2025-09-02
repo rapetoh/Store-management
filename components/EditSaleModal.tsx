@@ -377,28 +377,28 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
                 <DollarSign className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Modifier la vente</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Modifier la vente</h2>
                 <p className="text-sm text-gray-600">Modification de la vente existante</p>
               </div>
-            </div>
-                         <div className="flex items-center space-x-3">
-               <button
-                 onClick={onClose}
-                 className="text-gray-400 hover:text-gray-600 transition-colors"
-               >
-                 <X className="w-6 h-6" />
-               </button>
-             </div>
           </div>
+                         <div className="flex items-center space-x-3">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+             </div>
+        </div>
 
                      <div className="flex h-[calc(90vh-120px)] overflow-hidden">
              {/* Left Panel - Products and Cart */}
@@ -414,8 +414,8 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                     onChange={handleProductSearchChange}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                </div>
-                
+        </div>
+
                 {/* Product Search Results */}
                 {searchResults.length > 0 && (
                   <div className="mt-4 max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
@@ -429,27 +429,27 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                           <div className="font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-600">
                             {product.price.toLocaleString('fr-FR')} FCFA • {product.stock} en stock
-                          </div>
+              </div>
                         </div>
                         <Plus className="w-4 h-4 text-blue-600" />
                       </button>
                     ))}
-                  </div>
-                )}
-                
+            </div>
+          )}
+
                 {searchTerm && searchResults.length === 0 && !isSearchingProducts && (
                   <div className="mt-4 text-center text-gray-500">
                     <DollarSign className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     <p>Aucun produit trouvé</p>
                     <p className="text-sm">Essayez d'autres termes de recherche</p>
-                  </div>
-                )}
-                
+            </div>
+          )}
+
                 {isSearchingProducts && (
                   <div className="mt-4 text-center text-gray-500">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                     <p>Recherche en cours...</p>
-                  </div>
+                </div>
                 )}
               </div>
 
@@ -461,39 +461,39 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                     <DollarSign className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     <p>Votre panier est vide</p>
                     <p className="text-sm">Ajoutez des produits pour commencer</p>
-                  </div>
+              </div>
                 ) : (
-                  <div className="space-y-3">
+                             <div className="space-y-3">
                     {cart.map((item) => (
                       <div key={item.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                       <div className="flex-1">
                             <h4 className="font-medium text-gray-900">{item.productName}</h4>
                             
                             <div className="grid grid-cols-3 gap-4 mt-3">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantité</label>
-                                <div className="flex items-center space-x-2">
+                       <div className="flex items-center space-x-2">
                                   <button
                                     onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
                                     className="p-1 rounded border hover:bg-gray-50"
                                   >
                                     <Minus className="w-4 h-4" />
                                   </button>
-                                  <input
-                                    type="number"
+                         <input
+                           type="number"
                                     value={item.quantity}
                                     onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 0)}
                                     className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
-                                    min="0"
+                           min="0"
                                   />
-                                  <button
+                     <button
                                     onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
                                     className="p-1 rounded border hover:bg-gray-50"
-                                  >
+                     >
                                     <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
+                     </button>
+                   </div>
                               </div>
                               
                               <div>
@@ -520,26 +520,26 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                                   step="1"
                                 />
                               </div>
-                            </div>
-                            
+               </div>
+
                             <div className="mt-2 text-sm text-gray-600">
                               Prix total: {item.totalPrice.toLocaleString('fr-FR')} FCFA
                             </div>
-                          </div>
-                          
-                          <button
+                </div>
+
+                <button
                             onClick={() => removeItem(item.id)}
                             className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          >
+                >
                             <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
+                </button>
+              </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
             </div>
+          )}
+                </div>
+              </div>
 
                          {/* Right Panel - Customer and Payment */}
              <div className="w-96 p-6 bg-gray-50 overflow-y-auto">
@@ -608,14 +608,14 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div>
+              <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Carte de fidélité</label>
                     <input
                       type="text"
                       value={customerForm.loyaltyCard}
                       onChange={(e) => setCustomerForm(prev => ({ ...prev, loyaltyCard: e.target.value }))}
                       placeholder="LOY001"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -635,14 +635,14 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                              : `${appliedPromoCode.value.toLocaleString('fr-FR')} FCFA de remise`}
                          </p>
                        </div>
-                       <button
+                <button
                          onClick={() => setAppliedPromoCode(null)}
                          className="text-green-600 hover:text-green-800"
-                       >
+                >
                          <X className="w-4 h-4" />
-                       </button>
-                     </div>
-                   </div>
+                </button>
+              </div>
+            </div>
                  ) : (
                    <button
                      onClick={() => setShowPromoCodeModal(true)}
@@ -673,8 +673,8 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                        </div>
                      </button>
                    ))}
-                 </div>
-               </div>
+                    </div>
+                  </div>
 
               {/* Summary */}
               <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -700,12 +700,12 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                       <span className="text-lg font-semibold">{calculateTotal().toLocaleString('fr-FR')} FCFA</span>
                     </div>
                   </div>
-                </div>
-              </div>
+                     </div>
+                  </div>
 
               {/* Actions */}
               <div className="mt-6 space-y-3">
-                <button
+                    <button
                   onClick={handleSaveChanges}
                   disabled={isLoading || cart.length === 0}
                   className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
@@ -714,19 +714,19 @@ export default function EditSaleModal({ isOpen, onClose, sale, onSaleUpdated }: 
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Sauvegarde...</span>
-                    </>
-                  ) : (
+                </>
+              ) : (
                     <>
                       <Save className="w-4 h-4" />
                       <span>Sauvegarder et imprimer</span>
                     </>
                   )}
                 </button>
-              </div>
+                </div>
             </div>
-          </div>
         </div>
       </div>
+    </div>
 
       {/* Promo Code Modal */}
       {showPromoCodeModal && (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useNotificationCount } from '@/hooks/useNotificationCount'
-import { useCompanyInfo } from '@/hooks/useCompanyInfo'
+import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -39,7 +39,7 @@ const navigationItems = [
 export default function Home() {
   const searchParams = useSearchParams()
   const { unreadCount, refreshCount } = useNotificationCount()
-  const { companyInfo } = useCompanyInfo()
+  const { companyInfo } = useReceiptSettings()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -188,6 +188,19 @@ export default function Home() {
     setShowAdvancedReportsModal(true)
   }
 
+  const generateLogoText = () => {
+    if (!companyInfo.name) return 'S'
+    
+    const words = companyInfo.name.trim().split(/\s+/)
+    if (words.length === 1) {
+      // Single word: take first letter
+      return words[0].charAt(0).toUpperCase()
+    } else {
+      // Multiple words: take first letter of each word
+      return words.map((word: string) => word.charAt(0).toUpperCase()).join('')
+    }
+  }
+
   const handleReplenishmentRequest = (product: any) => {
     setSelectedProductForReplenishment(product)
     setShowReplenishmentModal(true)
@@ -242,7 +255,7 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">S</span>
+                  <span className="text-white font-bold text-sm">{generateLogoText()}</span>
                 </div>
                 <span className="text-lg font-bold text-gray-900 hidden sm:block">{companyInfo.name}</span>
               </div>

@@ -137,7 +137,8 @@ export default function Settings() {
         'company.vatNumber': localCompanyInfo.vatNumber
       }
       
-      const response = await fetch('/api/settings', {
+      // Save to settings endpoint
+      const settingsResponse = await fetch('/api/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +146,23 @@ export default function Settings() {
         body: JSON.stringify(settingsData),
       })
 
-      if (response.ok) {
+      // Also save to company endpoint for compatibility
+      const companyResponse = await fetch('/api/company', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: localCompanyInfo.name,
+          address: localCompanyInfo.address,
+          phone: localCompanyInfo.phone,
+          email: localCompanyInfo.email,
+          siret: localCompanyInfo.siret,
+          vatNumber: localCompanyInfo.vatNumber
+        }),
+      })
+
+      if (settingsResponse.ok && companyResponse.ok) {
         await refreshSettings() // Refresh the context
         showToast('success', 'Paramètres sauvegardés', 'Tous les paramètres ont été sauvegardés avec succès.')
       } else {
