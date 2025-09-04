@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useNotificationCount } from '@/hooks/useNotificationCount'
 import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
@@ -16,6 +17,8 @@ import NotificationsModal from '@/components/NotificationsModal'
 import InfoModal from '@/components/InfoModal'
 import CashRegisterModal from '@/components/CashRegisterModal' // New import
 import Cash from '@/components/Cash' // New import
+import ProtectedRoute from '@/components/ProtectedRoute'
+import UserProfileModal from '@/components/UserProfileModal'
 
 import InventoryModal from '@/components/InventoryModal' // New import
 import Inventory from '@/components/Inventory' // New import
@@ -40,11 +43,14 @@ export default function Home() {
   const searchParams = useSearchParams()
   const { unreadCount, refreshCount } = useNotificationCount()
   const { companyInfo } = useReceiptSettings()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
+  
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false)
   
   // New states for cash register
   const [showCashRegisterModal, setShowCashRegisterModal] = useState(false)
@@ -374,21 +380,33 @@ export default function Home() {
                 )}
               </button>
               
-              <button
-                onClick={handleUserProfile}
-                className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
-                title="Profil utilisateur"
-              >
-                <User className="w-5 h-5" />
-              </button>
+              {isAuthenticated ? (
+                <button
+                  onClick={() => setShowUserProfileModal(true)}
+                  className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Profil utilisateur"
+                >
+                  <User className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => window.location.href = '/login'}
+                  className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Se connecter"
+                >
+                  <User className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {renderContent()}
-      </main>
+      <ProtectedRoute>
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+          {renderContent()}
+        </main>
+      </ProtectedRoute>
 
       {/* Modals */}
       <NotificationsModal
@@ -433,6 +451,11 @@ export default function Home() {
         isOpen={showInventoryInsightsModal}
         onClose={() => setShowInventoryInsightsModal(false)}
       />
+      
+              <UserProfileModal
+          isOpen={showUserProfileModal}
+          onClose={() => setShowUserProfileModal(false)}
+        />
     </div>
   )
 } 

@@ -92,12 +92,13 @@ export default function Sales() {
     loadSales()
   }, [searchParams])
 
-  // Handle URL parameters for date filtering
+  // Handle URL parameters for date filtering and search
   useEffect(() => {
     const section = searchParams.get('section')
     if (section === 'sales') {
       const urlStartDate = searchParams.get('startDate')
       const urlEndDate = searchParams.get('endDate')
+      const urlSearch = searchParams.get('search')
       
       // If URL has date parameters, set them as local date range
       if (urlStartDate && urlEndDate) {
@@ -105,11 +106,19 @@ export default function Sales() {
           startDate: urlStartDate,
           endDate: urlEndDate
         })
-        
-        // Clear URL parameters after setting local state
+      }
+      
+      // If URL has search parameter, set it as local search term
+      if (urlSearch) {
+        setSearchTerm(urlSearch)
+      }
+      
+      // Clear URL parameters after setting local state
+      if (urlStartDate || urlEndDate || urlSearch) {
         const url = new URL(window.location.href)
-        url.searchParams.delete('startDate')
-        url.searchParams.delete('endDate')
+        if (urlStartDate) url.searchParams.delete('startDate')
+        if (urlEndDate) url.searchParams.delete('endDate')
+        if (urlSearch) url.searchParams.delete('search')
         window.history.replaceState({}, '', url.toString())
       }
     }

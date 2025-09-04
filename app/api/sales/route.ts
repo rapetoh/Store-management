@@ -6,9 +6,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const customerId = searchParams.get('customerId')
     
     let sales
-    if (startDate && endDate) {
+    if (customerId) {
+      // Filter sales by customer ID
+      sales = await DatabaseService.getSalesByCustomerId(customerId, startDate, endDate)
+    } else if (startDate && endDate) {
       // Filter sales by date range
       sales = await DatabaseService.getSalesByDateRange(startDate, endDate)
     } else {

@@ -86,6 +86,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }: ReceiptModalProp
         // If duplicate printing is enabled, print twice
         const copies = receiptSettings.printDuplicate ? 2 : 1
         
+        
         for (let i = 0; i < copies; i++) {
           if (i > 0) {
             // Add page break between copies

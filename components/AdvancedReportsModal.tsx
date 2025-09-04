@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Package, Calendar, Download, Printer, Filter, PieChart, LineChart } from 'lucide-react'
+import { X, BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Package, Calendar, Download, Printer, Filter, PieChart, LineChart, Percent } from 'lucide-react'
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 interface AdvancedReportsModalProps {
   isOpen: boolean
   onClose: () => void
   onReportGenerated: (report: any) => void
-  type: 'sales' | 'inventory' | 'customers' | 'financial' | 'custom'
+  type: 'sales' | 'inventory' | 'customers' | 'custom'
 }
 
 interface ReportData {
@@ -51,12 +51,12 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
     }
   }, [isOpen])
 
-  // Regenerate report when custom date range changes
+  // Regenerate report when period or date range changes
   useEffect(() => {
-    if (isOpen && selectedPeriod === 'custom') {
+    if (isOpen) {
       generateReport()
     }
-  }, [customDateRange, selectedPeriod])
+  }, [selectedPeriod, customDateRange, isOpen])
 
   const loadCategories = async () => {
     try {
@@ -75,7 +75,6 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       case 'sales': return 'Rapport des ventes'
       case 'inventory': return 'Rapport d\'inventaire'
       case 'customers': return 'Rapport clients'
-      case 'financial': return 'Rapport financier'
       case 'custom': return 'Rapport personnalisé'
       default: return 'Rapport avancé'
     }
@@ -86,7 +85,6 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       case 'sales': return 'Analyse détaillée des performances de vente'
       case 'inventory': return 'État des stocks et mouvements d\'inventaire'
       case 'customers': return 'Analyse du comportement client'
-      case 'financial': return 'Rapport financier complet'
       case 'custom': return 'Créer un rapport personnalisé'
       default: return ''
     }
@@ -97,7 +95,6 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
       case 'sales': return <TrendingUp className="w-5 h-5" />
       case 'inventory': return <Package className="w-5 h-5" />
       case 'customers': return <Users className="w-5 h-5" />
-      case 'financial': return <DollarSign className="w-5 h-5" />
       case 'custom': return <BarChart3 className="w-5 h-5" />
       default: return <BarChart3 className="w-5 h-5" />
     }
@@ -170,7 +167,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
           break
 
         case 'inventory':
-          const inventoryReportRes = await fetch('/api/reports/inventory')
+          const inventoryReportRes = await fetch(`/api/reports/inventory?${filterParams}`)
           if (inventoryReportRes.ok) {
             const inventoryData = await inventoryReportRes.json()
             reportData = {
@@ -201,39 +198,12 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
           }
           break
 
-        case 'financial':
-          // Combine sales and inventory data for financial report
-          const [financialSalesRes, financialInventoryRes] = await Promise.all([
-            fetch(`/api/reports/sales?${filterParams}`),
-            fetch('/api/reports/inventory')
-          ])
-          
-          if (financialSalesRes.ok && financialInventoryRes.ok) {
-            const [salesData, inventoryData] = await Promise.all([
-              financialSalesRes.json(),
-              financialInventoryRes.json()
-            ])
-            
-            reportData = {
-              salesData: salesData.chartData || [],
-              inventoryData: inventoryData,
-              summary: {
-                totalRevenue: salesData.totals?.totalRevenue || 0,
-                totalCost: inventoryData.metrics?.totalCost || 0,
-                totalProfit: (salesData.totals?.totalRevenue || 0) - (inventoryData.metrics?.totalCost || 0),
-                profitMargin: salesData.totals?.totalRevenue > 0 
-                  ? ((salesData.totals.totalRevenue - (inventoryData.metrics?.totalCost || 0)) / salesData.totals.totalRevenue) * 100
-                  : 0
-              }
-            }
-          }
-          break
 
         case 'custom':
           // Custom report - combine multiple data sources
           const [customSalesRes, customInventoryRes, customCustomersRes] = await Promise.all([
             fetch(`/api/reports/sales?${filterParams}`),
-            fetch('/api/reports/inventory'),
+            fetch(`/api/reports/inventory?${filterParams}`),
             fetch(`/api/reports/customers?${filterParams}`)
           ])
           
@@ -728,7 +698,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                       </>
                     )}
 
-                    {type === 'customers' && (
+                                        {type === 'customers' && (
                       <>
                         <div className="bg-blue-50 rounded-lg p-4">
                           <div className="flex items-center justify-between">
@@ -763,10 +733,11 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                               </p>
                             </div>
                             <BarChart3 className="w-8 h-8 text-purple-600" />
-                      </div>
-                    </div>
+                          </div>
+                        </div>
                       </>
                     )}
+
                   </div>
 
                   {/* Charts */}
@@ -790,6 +761,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                       </ResponsiveContainer>
                     </div>
                     )}
+
 
                     {/* Payment Methods */}
                     {type === 'sales' && generatedReport.data.paymentMethods && generatedReport.data.paymentMethods.length > 0 && (
@@ -875,6 +847,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                             </tbody>
                           </table>
                         )}
+
 
                         {type === 'customers' && generatedReport.data.customersData && (
                           <table className="min-w-full">

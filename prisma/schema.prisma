@@ -10,6 +10,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// User authentication table
+model User {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  email       String    @unique
+  password    String
+  firstName   String
+  lastName    String
+  role        String    @default("cashier") // "admin" or "cashier"
+  isActive    Boolean   @default(true)
+  lastLogin   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  sales       Sale[]
+  
+  @@index([username])
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
 // Tax rates table
 model TaxRate {
   id          String    @id @default(cuid())
@@ -28,26 +51,8 @@ model TaxRate {
   @@index([isActive])
 }
 
-// Payment methods table
-model PaymentMethod {
-  id              String    @id @default(cuid())
-  name            String    // Display name (e.g., "Espèces", "Carte bancaire")
-  code            String    @unique // Internal code (e.g., "cash", "card")
-  icon            String?   // Icon name for display
-  isActive        Boolean   @default(true)
-  requiresReceipt Boolean   @default(true)
-  sortOrder       Int       @default(0) // For ordering in UI
-  description     String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  // Relations
-  sales          Sale[]
-  
-  @@index([code])
-  @@index([isActive])
-  @@index([sortOrder])
-}
+
+
 
 // Categories for products
 model Category {
@@ -168,10 +173,10 @@ model Sale {
   
   // Relations
   items           SaleItem[]
+  user            User?      @relation(fields: [cashierId], references: [id])
   
   @@index([customerId])
   @@index([saleDate])
-  @@index([paymentMethodId])
 }
 
 // Sale items table

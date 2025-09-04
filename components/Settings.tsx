@@ -331,11 +331,13 @@ export default function Settings() {
         showToast('success', 'Taux supprimé', 'Le taux de TVA a été supprimé avec succès.')
       } else {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to delete tax rate')
+        // Show the specific error message from the backend
+        showToast('error', 'Erreur', error.error || 'Impossible de supprimer le taux de TVA')
+        return
       }
     } catch (error) {
       console.error('Error removing tax rate:', error)
-      showToast('error', 'Erreur', 'Impossible de supprimer le taux de TVA')
+      showToast('error', 'Erreur', 'Une erreur est survenue lors de la suppression du taux de TVA')
     } finally {
       setIsLoading(false)
     }

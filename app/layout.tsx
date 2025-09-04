@@ -4,6 +4,7 @@ import './globals.css'
 import { ToastContainer } from '@/components/Toast'
 import { universalLogger } from '@/lib/universalLogger'
 import { ReceiptSettingsProvider } from '@/contexts/ReceiptSettingsContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 // Initialize the universal logger
 if (typeof window !== 'undefined') {
@@ -25,10 +26,12 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={inter.className}>
-        <ReceiptSettingsProvider>
-          {children}
-          <ToastContainer />
-        </ReceiptSettingsProvider>
+        <AuthProvider>
+          <ReceiptSettingsProvider>
+            {children}
+            <ToastContainer />
+          </ReceiptSettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   )

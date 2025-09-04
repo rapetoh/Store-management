@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('categoryId')
     const lowStock = searchParams.get('lowStock') === 'true'
     const outOfStock = searchParams.get('outOfStock') === 'true'
+    // Note: startDate and endDate parameters are ignored for inventory 
+    // as inventory represents current state, not historical data
 
     // Build where clause for products
     const productWhere: any = {

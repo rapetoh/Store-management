@@ -113,6 +113,11 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.spending.totalSpent - a.spending.totalSpent)
       .slice(0, 10)
 
+    // Get total count of all active customers (regardless of purchase history)
+    const totalActiveCustomers = await prisma.customer.count({
+      where: { isActive: true }
+    })
+
     // Get customer acquisition over time (if we have date data)
     const customerAcquisition = await prisma.customer.groupBy({
       by: ['createdAt'],
@@ -130,6 +135,7 @@ export async function GET(request: NextRequest) {
       segmentBreakdown: Object.values(segmentBreakdown),
       summary: {
         totalCustomers: validCustomers.length,
+        totalActiveCustomers: totalActiveCustomers,
         totalRevenue: validCustomers.reduce((sum, item) => sum + item!.spending.totalSpent, 0),
         averageOrderValue: validCustomers.length > 0 
           ? validCustomers.reduce((sum, item) => sum + item!.spending.averageOrderValue, 0) / validCustomers.length 

@@ -479,6 +479,57 @@ export class DatabaseService {
     }))
   }
 
+  static async getSalesByCustomerId(customerId: string, startDate?: string, endDate?: string) {
+    const whereClause: any = {
+      customerId: customerId
+    }
+
+    // Add date filter if provided
+    if (startDate && endDate) {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999) // End of day
+      
+      whereClause.saleDate = {
+        gte: start,
+        lte: end,
+      }
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: whereClause,
+      include: {
+        customer: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: {
+        saleDate: 'desc',
+      },
+    })
+
+    // Transform the data to match frontend expectations
+    return sales.map(sale => ({
+      id: sale.id,
+      customer: sale.customer?.name || 'Client anonyme',
+      date: sale.saleDate.toLocaleDateString('fr-FR'),
+      time: sale.saleDate.toLocaleTimeString('fr-FR'),
+      total: sale.finalAmount, // Map finalAmount to total
+      status: sale.paymentStatus === 'completed' ? 'Payé' : 'En cours',
+      items: sale.items.length,
+      paymentMethod: sale.paymentMethod,
+      cashier: 'Caissier actuel', // Default value
+      notes: sale.notes,
+      saleItems: sale.items,
+      customerInfo: sale.customer,
+      appliedPromos: [], // Will be populated if needed
+      appliedDiscount: null, // Will be populated if needed
+    }))
+  }
+
   static async getSaleById(id: string) {
     return await prisma.sale.findUnique({
       where: { id },
