@@ -13,13 +13,20 @@ import {
   Trash2,
   Plus,
   MapPin,
-  X
+  X,
+  Users,
+  UserPlus,
+  Edit3,
+  Shield,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 import InfoModal from './InfoModal'
 import SupplierManagement from './SupplierManagement'
 import CategoryManagement from './CategoryManagement'
 import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface TaxRate {
   id: string
@@ -42,6 +49,18 @@ interface CompanyInfo {
   logo?: string
 }
 
+interface User {
+  id: string
+  username: string
+  email: string
+  firstName: string
+  lastName: string
+  role: 'admin' | 'cashier'
+  isActive: boolean
+  lastLogin?: string
+  createdAt: string
+}
+
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('company')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -51,6 +70,9 @@ export default function Settings() {
 
   // Get settings from context
   const { receiptSettings, companyInfo, refreshSettings } = useReceiptSettings()
+  
+  // Get current user from auth context
+  const { user: currentUser } = useAuth()
 
   // Local form state for editing
   const [localReceiptSettings, setLocalReceiptSettings] = useState(receiptSettings)
@@ -60,10 +82,39 @@ export default function Settings() {
   const [taxRates, setTaxRates] = useState<TaxRate[]>([])
   const [isLoadingTaxRates, setIsLoadingTaxRates] = useState(true)
 
+  // User Management
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [showEditUserModal, setShowEditUserModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [newUserForm, setNewUserForm] = useState({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    password: '',
+    role: 'cashier' as 'admin' | 'cashier'
+  })
+  const [editUserForm, setEditUserForm] = useState({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    role: 'cashier' as 'admin' | 'cashier'
+  })
+
   // Load tax rates on component mount
   useEffect(() => {
     loadTaxRates()
   }, [])
+
+  // Load users when users tab is accessed
+  useEffect(() => {
+    if (activeTab === 'users' && currentUser?.role === 'admin') {
+      loadUsers()
+    }
+  }, [activeTab, currentUser])
 
   // Sync local state with context values
   useEffect(() => {
@@ -373,6 +424,176 @@ export default function Settings() {
     }
   }
 
+  // User Management Functions
+  const loadUsers = async () => {
+    try {
+      setIsLoadingUsers(true)
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      const response = await fetch('/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (response.ok) {
+        const usersData = await response.json()
+        setUsers(usersData)
+      } else {
+        throw new Error('Failed to load users')
+      }
+    } catch (error) {
+      console.error('Error loading users:', error)
+      showToast('error', 'Erreur', 'Impossible de charger les utilisateurs')
+    } finally {
+      setIsLoadingUsers(false)
+    }
+  }
+
+  const createUser = async () => {
+    if (!newUserForm.username || !newUserForm.email || !newUserForm.firstName || !newUserForm.lastName || !newUserForm.password) {
+      showToast('error', 'Champs requis', 'Tous les champs sont obligatoires')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newUserForm),
+      })
+
+      if (response.ok) {
+        const newUser = await response.json()
+        setUsers(prev => [...prev, newUser])
+        setNewUserForm({
+          username: '',
+          email: '',
+          firstName: '',
+          lastName: '',
+          password: '',
+          role: 'cashier'
+        })
+        setShowAddUserModal(false)
+        showToast('success', 'Utilisateur créé', 'L\'utilisateur a été créé avec succès')
+        
+        // Log the activity
+        await logActivity('user_created', `Nouvel utilisateur créé: ${newUser.username} (${newUser.role})`)
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create user')
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      showToast('error', 'Erreur', 'Impossible de créer l\'utilisateur')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const updateUser = async (userId: string, updates: Partial<User>) => {
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (response.ok) {
+        const updatedUser = await response.json()
+        setUsers(prev => prev.map(user => 
+          user.id === userId ? updatedUser : user
+        ))
+        showToast('success', 'Utilisateur mis à jour', 'L\'utilisateur a été mis à jour avec succès')
+        
+        // Log the activity
+        await logActivity('user_updated', `Utilisateur modifié: ${updatedUser.username}`)
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update user')
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      showToast('error', 'Erreur', 'Impossible de mettre à jour l\'utilisateur')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const toggleUserStatus = async (userId: string, isActive: boolean) => {
+    await updateUser(userId, { isActive })
+  }
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user)
+    setEditUserForm({
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role
+    })
+    setShowEditUserModal(true)
+  }
+
+  const saveEditUser = async () => {
+    if (!selectedUser) return
+    
+    if (!editUserForm.username || !editUserForm.email || !editUserForm.firstName || !editUserForm.lastName) {
+      showToast('error', 'Champs requis', 'Tous les champs sont obligatoires')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editUserForm),
+      })
+
+      if (response.ok) {
+        const updatedUser = await response.json()
+        setUsers(prev => prev.map(user => 
+          user.id === selectedUser.id ? updatedUser : user
+        ))
+        setShowEditUserModal(false)
+        setSelectedUser(null)
+        setEditUserForm({
+          username: '',
+          email: '',
+          firstName: '',
+          lastName: '',
+          role: 'cashier'
+        })
+        showToast('success', 'Utilisateur modifié', 'L\'utilisateur a été modifié avec succès')
+        
+        // Log the activity
+        await logActivity('user_updated', `Utilisateur modifié: ${updatedUser.username}`)
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update user')
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      showToast('error', 'Erreur', 'Impossible de modifier l\'utilisateur')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
 
 
   const handleResetSettings = () => {
@@ -447,6 +668,7 @@ export default function Settings() {
             { id: 'categories', label: 'Catégories', icon: Building2 },
             { id: 'taxes', label: 'TVA', icon: Receipt },
             { id: 'receipts', label: 'Reçus', icon: FileText },
+            ...(currentUser?.role === 'admin' ? [{ id: 'users', label: 'Utilisateurs', icon: Users }] : []),
             { id: 'advanced', label: 'Avancé', icon: SettingsIcon }
           ].map((tab) => (
             <button
@@ -694,6 +916,96 @@ export default function Settings() {
           </div>
         )}
 
+        {/* User Management - Admin Only */}
+        {activeTab === 'users' && currentUser?.role === 'admin' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Gestion des utilisateurs</h3>
+              <button
+                onClick={() => setShowAddUserModal(true)}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Ajouter un utilisateur</span>
+              </button>
+            </div>
+            
+            {isLoadingUsers ? (
+              <div className="text-center py-8">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-gray-600 mt-2">Chargement des utilisateurs...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        user.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        {user.role === 'admin' ? <Shield className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-medium text-gray-900">{user.firstName} {user.lastName}</h4>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            user.role === 'admin' 
+                              ? 'bg-red-100 text-red-700' 
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {user.role === 'admin' ? 'Administrateur' : 'Caissier'}
+                          </span>
+                          {!user.isActive && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
+                              Désactivé
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">@{user.username} • {user.email}</p>
+                        {user.lastLogin && (
+                          <p className="text-xs text-gray-500">
+                            Dernière connexion: {new Date(user.lastLogin).toLocaleString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => toggleUserStatus(user.id, !user.isActive)}
+                        disabled={isLoading || user.id === currentUser?.id}
+                        className={`px-3 py-1 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
+                          user.isActive
+                            ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                        title={user.id === currentUser?.id ? 'Vous ne pouvez pas désactiver votre propre compte' : ''}
+                      >
+                        {user.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        disabled={isLoading}
+                        className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                {users.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>Aucun utilisateur trouvé</p>
+                    <p className="text-sm">Cliquez sur "Ajouter un utilisateur" pour commencer</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Advanced Settings */}
         {activeTab === 'advanced' && (
           <div className="space-y-6">
@@ -730,6 +1042,318 @@ export default function Settings() {
         type={infoModalData.type}
         icon={infoModalData.icon}
       />
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <UserPlus className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Ajouter un utilisateur</h3>
+                  <p className="text-sm text-gray-600">Créer un nouveau compte utilisateur</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddUserModal(false)
+                  setNewUserForm({
+                    username: '',
+                    email: '',
+                    firstName: '',
+                    lastName: '',
+                    password: '',
+                    role: 'cashier'
+                  })
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prénom *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserForm.firstName}
+                    onChange={(e) => setNewUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Jean"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserForm.lastName}
+                    onChange={(e) => setNewUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Dupont"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nom d'utilisateur *
+                </label>
+                <input
+                  type="text"
+                  value={newUserForm.username}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="jdupont"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="jean.dupont@exemple.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mot de passe *
+                </label>
+                <input
+                  type="password"
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rôle *
+                </label>
+                <select
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, role: e.target.value as 'admin' | 'cashier' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="cashier">Caissier</option>
+                  <option value="admin">Administrateur</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddUserModal(false)
+                    setNewUserForm({
+                      username: '',
+                      email: '',
+                      firstName: '',
+                      lastName: '',
+                      password: '',
+                      role: 'cashier'
+                    })
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={createUser}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Création...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Créer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUserModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <Edit3 className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Modifier l'utilisateur</h3>
+                  <p className="text-sm text-gray-600">Modifier les informations de {selectedUser.firstName} {selectedUser.lastName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditUserModal(false)
+                  setSelectedUser(null)
+                  setEditUserForm({
+                    username: '',
+                    email: '',
+                    firstName: '',
+                    lastName: '',
+                    role: 'cashier'
+                  })
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prénom *
+                  </label>
+                  <input
+                    type="text"
+                    value={editUserForm.firstName}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Jean"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom *
+                  </label>
+                  <input
+                    type="text"
+                    value={editUserForm.lastName}
+                    onChange={(e) => setEditUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Dupont"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nom d'utilisateur *
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.username}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="jdupont"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="jean.dupont@exemple.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rôle *
+                </label>
+                <select
+                  value={editUserForm.role}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, role: e.target.value as 'admin' | 'cashier' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={selectedUser.id === currentUser?.id} // Prevent changing own role
+                >
+                  <option value="cashier">Caissier</option>
+                  <option value="admin">Administrateur</option>
+                </select>
+                {selectedUser.id === currentUser?.id && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Vous ne pouvez pas modifier votre propre rôle
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <div className="flex items-center space-x-2">
+                  <Eye className="w-4 h-4 text-yellow-600" />
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> Pour changer le mot de passe, l'utilisateur doit utiliser la fonction "Mot de passe oublié" lors de la connexion.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditUserModal(false)
+                    setSelectedUser(null)
+                    setEditUserForm({
+                      username: '',
+                      email: '',
+                      firstName: '',
+                      lastName: '',
+                      role: 'cashier'
+                    })
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEditUser}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Modification...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      <span>Modifier</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -544,18 +544,150 @@ export class DatabaseService {
     })
   }
 
-  static async updateSale(id: string, data: { notes?: string; paymentMethod?: string }) {
-    return await prisma.sale.update({
-      where: { id },
-      data,
-      include: {
-        customer: true,
-        items: {
-          include: {
-            product: true,
+  static async updateSale(id: string, data: { 
+    notes?: string; 
+    paymentMethod?: string;
+    items?: Array<{
+      id?: string;
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      discount?: number;
+      totalPrice: number;
+    }>;
+    totalAmount?: number;
+    taxAmount?: number;
+    finalAmount?: number;
+  }) {
+    // If only notes and paymentMethod are provided (backward compatibility)
+    if (!data.items && !data.totalAmount && !data.taxAmount && !data.finalAmount) {
+      return await prisma.sale.update({
+        where: { id },
+        data: {
+          notes: data.notes,
+          paymentMethod: data.paymentMethod,
+        },
+        include: {
+          customer: true,
+          items: {
+            include: {
+              product: true,
+            },
           },
         },
-      },
+      })
+    }
+
+    // Full sale update with transaction for data consistency
+    return await prisma.$transaction(async (tx) => {
+      // Get the current sale with items to calculate stock adjustments
+      const currentSale = await tx.sale.findUnique({
+        where: { id },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      })
+
+      if (!currentSale) {
+        throw new Error('Sale not found')
+      }
+
+      // Calculate stock adjustments needed
+      const stockAdjustments = new Map<string, number>()
+
+      // First, restore stock from current sale items
+      for (const currentItem of currentSale.items) {
+        const currentAdjustment = stockAdjustments.get(currentItem.productId) || 0
+        stockAdjustments.set(currentItem.productId, currentAdjustment + currentItem.quantity)
+      }
+
+      // Then, subtract stock for new sale items
+      if (data.items) {
+        for (const newItem of data.items) {
+          const currentAdjustment = stockAdjustments.get(newItem.productId) || 0
+          stockAdjustments.set(newItem.productId, currentAdjustment - newItem.quantity)
+        }
+      }
+
+      // Apply stock adjustments and create inventory movements
+      for (const productId of Array.from(stockAdjustments.keys())) {
+        const adjustment = stockAdjustments.get(productId)!
+        if (adjustment !== 0) {
+          const product = await tx.product.findUnique({
+            where: { id: productId }
+          })
+
+          if (product) {
+            const previousStock = product.stock
+            const newStock = previousStock + adjustment
+
+            // Update product stock
+            await tx.product.update({
+              where: { id: productId },
+              data: { stock: newStock }
+            })
+
+            // Create inventory movement record
+            await tx.inventoryMovement.create({
+              data: {
+                productId,
+                type: 'modification_vente',
+                quantity: adjustment,
+                previousStock,
+                newStock,
+                reason: `Modification vente ${id}`,
+                reference: `Vente ${id}`,
+                userId: 'Admin' // TODO: Get actual user from context
+              }
+            })
+          }
+        }
+      }
+
+      // Delete existing sale items if new items are provided
+      if (data.items) {
+        await tx.saleItem.deleteMany({
+          where: { saleId: id }
+        })
+
+        // Create new sale items
+        await tx.saleItem.createMany({
+          data: data.items.map(item => ({
+            saleId: id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount || 0,
+            totalPrice: item.totalPrice,
+          }))
+        })
+      }
+
+      // Update the sale record
+      const updatedSale = await tx.sale.update({
+        where: { id },
+        data: {
+          notes: data.notes,
+          paymentMethod: data.paymentMethod,
+          totalAmount: data.totalAmount,
+          taxAmount: data.taxAmount,
+          finalAmount: data.finalAmount,
+        },
+        include: {
+          customer: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      })
+
+      return updatedSale
     })
   }
 
@@ -1793,6 +1925,117 @@ export class DatabaseService {
       data: {
         ...data,
         userId: data.userId || 'Admin'
+      }
+    })
+  }
+
+  // User management operations
+  static async getAllUsers() {
+    return await prisma.user.findMany({
+      orderBy: {
+        createdAt: 'desc'
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    })
+  }
+
+  static async getUserById(id: string) {
+    return await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true,
+        password: true // Include password for auth purposes
+      }
+    })
+  }
+
+  static async createUser(data: {
+    username: string
+    email: string
+    firstName: string
+    lastName: string
+    password: string
+    role: 'admin' | 'cashier'
+  }) {
+    return await prisma.user.create({
+      data,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true,
+        password: true // Include for response processing
+      }
+    })
+  }
+
+  static async updateUser(id: string, data: {
+    username?: string
+    email?: string
+    firstName?: string
+    lastName?: string
+    role?: 'admin' | 'cashier'
+    isActive?: boolean
+  }) {
+    return await prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true,
+        password: true // Include for response processing
+      }
+    })
+  }
+
+  static async deleteUser(id: string) {
+    return await prisma.user.delete({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true
       }
     })
   }
