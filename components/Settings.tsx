@@ -8,8 +8,6 @@ import {
   FileText,
   Settings as SettingsIcon,
   Save,
-  Download,
-  Upload,
   Trash2,
   Plus,
   MapPin,
@@ -227,84 +225,6 @@ export default function Settings() {
     }
   }
 
-  const handleExportSettings = () => {
-    const settings = {
-      companyInfo,
-      taxRates,
-
-      receiptSettings
-    }
-    
-    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'stockflow-settings.json'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    
-    showToast('success', 'Export réussi', 'Les paramètres ont été exportés avec succès.')
-  }
-
-  const handleImportSettings = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = async (e) => {
-          try {
-            const settings = JSON.parse(e.target?.result as string)
-            
-            // Prepare settings data for import
-            const settingsData: Record<string, string> = {}
-            
-            if (settings.companyInfo) {
-              settingsData['company.name'] = settings.companyInfo.name
-              settingsData['company.address'] = settings.companyInfo.address
-              settingsData['company.phone'] = settings.companyInfo.phone
-              settingsData['company.email'] = settings.companyInfo.email
-              settingsData['company.siret'] = settings.companyInfo.siret
-              settingsData['company.vatNumber'] = settings.companyInfo.vatNumber
-            }
-            
-            if (settings.receiptSettings) {
-              settingsData['receipt.showLogo'] = settings.receiptSettings.showLogo.toString()
-              settingsData['receipt.showTaxDetails'] = settings.receiptSettings.showTaxDetails.toString()
-              settingsData['receipt.showCashierName'] = settings.receiptSettings.showCashierName.toString()
-              settingsData['receipt.receiptFooter'] = settings.receiptSettings.receiptFooter
-              settingsData['receipt.autoPrint'] = settings.receiptSettings.autoPrint.toString()
-              settingsData['receipt.printDuplicate'] = settings.receiptSettings.printDuplicate.toString()
-            }
-            
-            // Save imported settings to database
-            const response = await fetch('/api/settings', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(settingsData),
-            })
-            
-            if (response.ok) {
-              await refreshSettings() // Refresh the context
-              showToast('success', 'Import réussi', 'Les paramètres ont été importés avec succès.')
-            } else {
-              throw new Error('Failed to save imported settings')
-            }
-          } catch (error) {
-            showToast('error', 'Erreur d\'import', 'Le fichier n\'est pas valide.')
-          }
-        }
-        reader.readAsText(file)
-      }
-    }
-    input.click()
-  }
 
   const addTaxRate = async () => {
     const newTaxRate: Omit<TaxRate, 'id'> = {
@@ -635,20 +555,6 @@ export default function Settings() {
           <p className="text-gray-600">Configurez votre application StockFlow</p>
         </div>
         <div className="flex items-center space-x-2">
-          <button
-            onClick={handleExportSettings}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exporter</span>
-          </button>
-          <button
-            onClick={handleImportSettings}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Importer</span>
-          </button>
           <button
             onClick={handleSaveSettings}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"

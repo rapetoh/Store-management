@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useNotificationCount } from '@/hooks/useNotificationCount'
 import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { Search, Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
+import { Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
 import Sales from '@/components/Orders' // Renamed import from Orders to Sales
@@ -28,25 +28,43 @@ import InventoryInsightsModal from '@/components/InventoryInsightsModal' // New 
 import AdvancedReportsModal from '@/components/AdvancedReportsModal' // New import
 
 const navigationItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-  { id: 'products', label: 'Produits', icon: Package },
-  { id: 'inventory', label: 'Inventaire', icon: Warehouse },
-  { id: 'sales', label: 'Ventes', icon: ShoppingCart },
-  { id: 'customers', label: 'Clients', icon: Users },
-  { id: 'reports', label: 'Rapports', icon: BarChart3 },
-  { id: 'cash', label: 'Caisse', icon: CreditCard },
-  { id: 'logs', label: 'Logs', icon: FileText },
-  { id: 'settings', label: 'Paramètres', icon: Settings },
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3, requiredRole: 'admin' },
+  { id: 'products', label: 'Produits', icon: Package, requiredRole: null }, // Accessible to all
+  { id: 'inventory', label: 'Inventaire', icon: Warehouse, requiredRole: 'admin' },
+  { id: 'sales', label: 'Ventes', icon: ShoppingCart, requiredRole: null }, // Accessible to all
+  { id: 'customers', label: 'Clients', icon: Users, requiredRole: null }, // Accessible to all
+  { id: 'reports', label: 'Rapports', icon: BarChart3, requiredRole: 'admin' },
+  { id: 'cash', label: 'Caisse', icon: CreditCard, requiredRole: 'admin' },
+  { id: 'logs', label: 'Logs', icon: FileText, requiredRole: 'admin' },
+  { id: 'settings', label: 'Paramètres', icon: Settings, requiredRole: 'admin' },
 ]
+
+// Utility function to check if user has access to a feature
+const hasAccess = (requiredRole: string | null, userRole: string | undefined) => {
+  if (requiredRole === null) return true // Feature accessible to all
+  if (requiredRole === 'admin') return userRole === 'admin'
+  return false
+}
+
+// Filter navigation items based on user role
+const getFilteredNavigationItems = (userRole: string | undefined) => {
+  return navigationItems.filter(item => hasAccess(item.requiredRole, userRole))
+}
 
 export default function Home() {
   const searchParams = useSearchParams()
   const { unreadCount, refreshCount } = useNotificationCount()
   const { companyInfo } = useReceiptSettings()
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-  const [activeSection, setActiveSection] = useState('dashboard')
+  // Set default section based on user role
+  const getDefaultSection = (userRole: string | undefined) => {
+    return userRole === 'admin' ? 'dashboard' : 'sales'
+  }
+  
+  const [activeSection, setActiveSection] = useState(() => {
+    return getDefaultSection(user?.role)
+  })
   const [showNotifications, setShowNotifications] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
   
@@ -63,24 +81,43 @@ export default function Home() {
   const [showInventoryInsightsModal, setShowInventoryInsightsModal] = useState(false)
 
   const [showAdvancedReportsModal, setShowAdvancedReportsModal] = useState(false)
-  const [reportType, setReportType] = useState<'sales' | 'inventory' | 'customers' | 'financial' | 'custom'>('sales')
+  const [reportType, setReportType] = useState<'sales' | 'inventory' | 'customers' | 'custom'>('sales')
 
   // State for replenishment modal
   const [showReplenishmentModal, setShowReplenishmentModal] = useState(false)
   const [selectedProductForReplenishment, setSelectedProductForReplenishment] = useState<any>(null)
 
-  // Check URL parameters on mount and when they change
+  // Check URL parameters on mount and when they change with role-based restrictions
   useEffect(() => {
     const section = searchParams.get('section')
     if (section && ['dashboard', 'products', 'inventory', 'sales', 'customers', 'reports', 'cash', 'logs', 'settings'].includes(section)) {
-      setActiveSection(section)
+      // Check if user has access to the requested section
+      const sectionAccess = navigationItems.find(item => item.id === section)
+      if (sectionAccess && hasAccess(sectionAccess.requiredRole, user?.role)) {
+        setActiveSection(section)
+      } else if (user?.role) {
+        // Redirect to default section if no access
+        setActiveSection(getDefaultSection(user.role))
+      }
     }
-  }, [searchParams])
+  }, [searchParams, user?.role])
 
   // Check cash register status on component mount and when needed
   useEffect(() => {
     checkCashRegisterStatus()
   }, [])
+
+  // Handle role-based access control
+  useEffect(() => {
+    if (user?.role) {
+      // Check if current active section is accessible by user
+      const currentSectionAccess = navigationItems.find(item => item.id === activeSection)
+      if (currentSectionAccess && !hasAccess(currentSectionAccess.requiredRole, user.role)) {
+        // Redirect to default section for user role
+        setActiveSection(getDefaultSection(user.role))
+      }
+    }
+  }, [user?.role, activeSection])
 
   const checkCashRegisterStatus = async () => {
     try {
@@ -98,39 +135,6 @@ export default function Home() {
     }
   }
 
-  const handleSearch = () => {
-    if (searchTerm.trim()) {
-      // Recherche dans les produits
-      if (searchTerm.toLowerCase().includes('produit')) {
-        setActiveSection('products')
-        // Clear URL parameters when navigating to products
-        const url = new URL(window.location.href)
-        url.searchParams.delete('startDate')
-        url.searchParams.delete('endDate')
-        url.searchParams.set('section', 'products')
-        window.history.replaceState({}, '', url.toString())
-        showToast('info', 'Recherche', `Recherche pour: "${searchTerm}"\n\nRedirection vers la section Produits...`)
-      }
-      // Recherche dans les ventes
-      else if (searchTerm.toLowerCase().includes('vente')) { // Changed 'commande' to 'vente'
-        setActiveSection('sales') // Changed 'orders' to 'sales'
-        showToast('info', 'Recherche', `Recherche pour: "${searchTerm}"\n\nRedirection vers la section Ventes...`) // Changed 'Commandes' to 'Ventes'
-      }
-      // Recherche générale
-      else {
-        setInfoModalData({
-          title: 'Recherche',
-          message: `Recherche pour: "${searchTerm}"\n\nRésultats de recherche à implémenter...\n\nCette fonctionnalité sera développée dans la prochaine version.`,
-          type: 'info',
-          icon: 'info'
-        })
-        setShowInfoModal(true)
-      }
-      setSearchTerm('')
-    } else {
-      showToast('warning', 'Recherche', 'Veuillez entrer un terme de recherche')
-    }
-  }
 
   const handleNotifications = () => {
     setShowNotifications(true)
@@ -225,6 +229,25 @@ export default function Home() {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     
+    // Check if user has access to current section
+    const currentSectionAccess = navigationItems.find(item => item.id === activeSection)
+    if (currentSectionAccess && !hasAccess(currentSectionAccess.requiredRole, user?.role)) {
+      // Show access denied for restricted sections
+      return (
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-2xl font-bold text-gray-700 mb-2">Accès restreint</h2>
+          <p className="text-gray-500 mb-4">Vous n'avez pas les permissions nécessaires pour accéder à cette section.</p>
+          <button
+            onClick={() => setActiveSection(getDefaultSection(user?.role))}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      )
+    }
+    
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard onReplenishmentRequest={handleReplenishmentRequest} />
@@ -248,7 +271,7 @@ export default function Home() {
       case 'settings':
         return <SettingsPage />
       default:
-        return <Dashboard />
+        return user?.role === 'admin' ? <Dashboard onReplenishmentRequest={handleReplenishmentRequest} /> : <Sales key={`sales-${startDate}-${endDate}`} />
     }
   }
 
@@ -267,7 +290,7 @@ export default function Home() {
               </div>
               
               <nav className="hidden md:flex space-x-2">
-                {navigationItems.map((item) => (
+                {getFilteredNavigationItems(user?.role).map((item) => (
                   <button
                     key={item.id}
                     onClick={() => {
@@ -298,73 +321,71 @@ export default function Home() {
               </nav>
             </div>
 
-            {/* Search and Actions */}
+            {/* Actions */}
             <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Rechercher..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-48 lg:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
               
               {/* Essential Actions */}
               <div className="flex items-center space-x-1">
-                {/* Cash Register */}
-                <button
-                  onClick={handleOpenCashRegister}
-                  disabled={currentCashSession && currentCashSession.status === 'open'}
-                  className={`p-2 rounded-md transition-colors group relative ${
-                    currentCashSession && currentCashSession.status === 'open'
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-green-600 hover:text-green-700 hover:bg-green-50'
-                  }`}
-                  title={currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
-                >
-                  <DollarSign className="w-5 h-5" />
-                  {/* Tooltip */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                    {currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
-                  </div>
-                </button>
-                <button
-                  onClick={handleCountCash}
-                  disabled={!currentCashSession || currentCashSession.status !== 'open'}
-                  className={`p-2 rounded-md transition-colors group relative ${
-                    !currentCashSession || currentCashSession.status !== 'open'
-                      ? 'text-gray-400 cursor-not-allowed'
-                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                  }`}
-                  title={!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
-                >
-                  <Calculator className="w-5 h-5" />
-                  {/* Tooltip */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                    {!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
-                  </div>
-                </button>
+                {/* Cash Register - Admin Only */}
+                {hasAccess('admin', user?.role) && (
+                  <button
+                    onClick={handleOpenCashRegister}
+                    disabled={currentCashSession && currentCashSession.status === 'open'}
+                    className={`p-2 rounded-md transition-colors group relative ${
+                      currentCashSession && currentCashSession.status === 'open'
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                    }`}
+                    title={currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    {/* Tooltip */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      {currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
+                    </div>
+                  </button>
+                )}
+                {/* Cash Count - Admin Only */}
+                {hasAccess('admin', user?.role) && (
+                  <button
+                    onClick={handleCountCash}
+                    disabled={!currentCashSession || currentCashSession.status !== 'open'}
+                    className={`p-2 rounded-md transition-colors group relative ${
+                      !currentCashSession || currentCashSession.status !== 'open'
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                    }`}
+                    title={!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
+                  >
+                    <Calculator className="w-5 h-5" />
+                    {/* Tooltip */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      {!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
+                    </div>
+                  </button>
+                )}
 
-                {/* Inventory Management */}
-                <button
-                  onClick={handleInventoryAdjustment}
-                  className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
-                  title="Ajustement de stock"
-                >
-                  <Package className="w-5 h-5" />
-                </button>
+                {/* Inventory Management - Admin Only */}
+                {hasAccess('admin', user?.role) && (
+                  <button
+                    onClick={handleInventoryAdjustment}
+                    className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
+                    title="Ajustement de stock"
+                  >
+                    <Package className="w-5 h-5" />
+                  </button>
+                )}
 
-                {/* Advanced Reports */}
-                <button
-                  onClick={handleAdvancedReports}
-                  className="p-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-md transition-colors"
-                  title="Rapports avancés"
-                >
-                  <BarChart3 className="w-5 h-5" />
-                </button>
+                {/* Advanced Reports - Admin Only */}
+                {hasAccess('admin', user?.role) && (
+                  <button
+                    onClick={handleAdvancedReports}
+                    className="p-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-md transition-colors"
+                    title="Rapports avancés"
+                  >
+                    <BarChart3 className="w-5 h-5" />
+                  </button>
+                )}
               </div>
               
               <button
