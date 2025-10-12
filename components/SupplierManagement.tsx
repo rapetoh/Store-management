@@ -97,7 +97,7 @@ export default function SupplierManagement() {
         await logActivity(
           'modification',
           `Ajout fournisseur: ${formData.name}`,
-          null // No financial impact for supplier addition
+          undefined // No financial impact for supplier addition
         )
         
         await loadSuppliers()
@@ -128,7 +128,7 @@ export default function SupplierManagement() {
         await logActivity(
           'modification',
           `Modification fournisseur: ${selectedSupplier.name} → ${formData.name}`,
-          null // No financial impact for supplier modification
+          undefined // No financial impact for supplier modification
         )
         
         await loadSuppliers()
@@ -155,7 +155,7 @@ export default function SupplierManagement() {
         await logActivity(
           'modification',
           `Suppression fournisseur: ${selectedSupplier.name}`,
-          null // No financial impact for supplier deletion
+          undefined // No financial impact for supplier deletion
         )
         
         await loadSuppliers()
@@ -534,7 +534,7 @@ export default function SupplierManagement() {
         message={`Êtes-vous sûr de vouloir supprimer le fournisseur "${selectedSupplier?.name}" ? Cette action ne peut pas être annulée.`}
         confirmText="Supprimer"
         cancelText="Annuler"
-        confirmColor="red"
+        type="danger"
       />
     </div>
   )

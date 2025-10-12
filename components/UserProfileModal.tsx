@@ -59,7 +59,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
       if (formData.newPassword) {
         // In a real app, you'd send currentPassword for verification
         // For now, we'll just update the password
-        updateData.password = formData.newPassword
+        (updateData as any).password = formData.newPassword
       }
 
       const success = await updateProfile(updateData)

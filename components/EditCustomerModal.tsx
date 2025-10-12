@@ -49,7 +49,7 @@ export default function EditCustomerModal({ isOpen, onClose, onCustomerUpdated, 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {}
     
-    if (!formData.name.trim()) newErrors.name = 'Le nom est requis'
+    if (!formData.name?.trim()) newErrors.name = 'Le nom est requis'
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email invalide'
     if (formData.phone && !/^[\+]?[0-9\s\-\(\)]{8,}$/.test(formData.phone)) newErrors.phone = 'Numéro de téléphone invalide'
 

@@ -86,7 +86,7 @@ export default function Sales() {
   const [showQuickSaleModal, setShowQuickSaleModal] = useState(false)
   const [showEditSaleModal, setShowEditSaleModal] = useState(false)
   const [showSaleDetailsModal, setShowSaleDetailsModal] = useState(false)
-  const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
+  const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as 'info' | 'warning' | 'success', icon: 'info' as 'info' | 'success' | 'warning' | 'package' | 'cart' })
   const [shouldOpenSaleAfterWarning, setShouldOpenSaleAfterWarning] = useState(false)
 
   useEffect(() => {
@@ -219,7 +219,7 @@ export default function Sales() {
     }
   }
 
-  const displayInfoModal = (title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', icon: string) => {
+  const displayInfoModal = (title: string, message: string, type: 'info' | 'warning' | 'success', icon: 'info' | 'success' | 'warning' | 'package' | 'cart') => {
     setInfoModalData({ title, message, type, icon })
     setShowInfoModal(true)
   }
@@ -246,7 +246,7 @@ export default function Sales() {
           'Caisse non ouverte',
           'Aucune session de caisse n\'est actuellement ouverte.\n\nIl serait recommandé d\'ouvrir la caisse avant de traiter une vente, surtout si elle sera payée en espèces.\n\nVoulez-vous continuer quand même ?',
           'warning',
-          'alertTriangle'
+          'warning'
         )
         // Sale modal will open when user dismisses the warning (handled in onInfoModalClose)
       } else {
@@ -261,7 +261,7 @@ export default function Sales() {
         'Statut de caisse inconnu',
         'Impossible de vérifier le statut de la caisse. Vous pouvez continuer avec la vente.',
         'warning',
-        'alertTriangle'
+        'warning'
       )
       // Sale modal will open when user dismisses the warning (handled in onInfoModalClose)
     }
@@ -338,7 +338,7 @@ export default function Sales() {
       // Log the deletion activity
       logActivity(
         'modification',
-            `Suppression vente #${selectedSale.id} - Total: ${selectedSale.finalAmount.toLocaleString('fr-FR')} FCFA`,
+            `Suppression vente #${selectedSale.id} - Total: ${(selectedSale.finalAmount || 0).toLocaleString('fr-FR')} FCFA`,
             -(selectedSale.finalAmount || 0) // Negative impact for deletion
       )
       

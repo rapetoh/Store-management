@@ -53,15 +53,15 @@ export class NotificationService {
       for (const product of products) {
         // Check for out of stock
         if (product.stock === 0) {
-          await this.createStockOutNotification(product)
+          await this.createStockOutNotification({ ...product, sku: product.sku || undefined })
         }
         // Check for critical stock (less than 25% of min stock)
         else if (product.stock <= Math.max(1, Math.floor(product.minStock * 0.25))) {
-          await this.createCriticalStockNotification(product)
+          await this.createCriticalStockNotification({ ...product, sku: product.sku || undefined })
         }
         // Check for low stock (less than or equal to min stock)
         else if (product.stock <= product.minStock) {
-          await this.createLowStockNotification(product)
+          await this.createLowStockNotification({ ...product, sku: product.sku || undefined })
         }
       }
     } catch (error) {
