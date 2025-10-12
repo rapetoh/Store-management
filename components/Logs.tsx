@@ -139,7 +139,7 @@ export default function Logs() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Logs d'activité</h1>
-          <p className="text-gray-600">Suivi complet de toutes les actions avec impact financier</p>
+          <p className="text-gray-600">Version Beta - Sera amelioré dans une prochaine version</p>
         </div>
         <div className="flex items-center space-x-2">
           <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center space-x-2">

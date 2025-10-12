@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     let sales
     if (customerId) {
       // Filter sales by customer ID
-      sales = await DatabaseService.getSalesByCustomerId(customerId, startDate, endDate)
+      sales = await DatabaseService.getSalesByCustomerId(customerId, startDate || undefined, endDate || undefined)
     } else if (startDate && endDate) {
       // Filter sales by date range
       sales = await DatabaseService.getSalesByDateRange(startDate, endDate)
@@ -34,23 +34,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Create the sale
+    // Create the sale (this already handles stock updates and inventory movements)
     const sale = await DatabaseService.createSale(body)
-    
-    // Update stock for each product in the sale
-    for (const item of body.items) {
-      const product = await DatabaseService.getProductById(item.productId)
-      if (product) {
-        const newStock = product.stock - item.quantity
-        await DatabaseService.updateStock(
-          item.productId,
-          newStock,
-          'Vente',
-          'vente',
-          sale.id
-        )
-      }
-    }
     
     // Update cash session if payment method is cash
     if (body.paymentMethod === 'cash' || body.paymentMethod === 'Espèces') {

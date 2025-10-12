@@ -22,7 +22,9 @@ import {
   MapPin,
   Settings,
   Check,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 interface Product {
@@ -56,6 +58,15 @@ interface Supplier {
   name: string
 }
 
+interface PaginationInfo {
+  page: number
+  limit: number
+  totalCount: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
 interface InventoryProps {
   preSelectedProduct?: any
   showReplenishmentModalOnMount?: boolean
@@ -66,6 +77,14 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    limit: 20,
+    totalCount: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -108,7 +127,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   })
 
   // Expirations tab state
-  const [expirations, setExpirations] = useState([])
+  const [expirations, setExpirations] = useState<any[]>([])
   const [expirationsLoading, setExpirationsLoading] = useState(false)
   const [expirationSearchTerm, setExpirationSearchTerm] = useState('')
   const [selectedExpirationPeriod, setSelectedExpirationPeriod] = useState('30')
@@ -117,7 +136,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   
   // Modal pour éditer la quantité
   const [editQuantityModal, setEditQuantityModal] = useState(false)
-  const [editingExpiration, setEditingExpiration] = useState(null)
+  const [editingExpiration, setEditingExpiration] = useState<any>(null)
   const [editQuantity, setEditQuantity] = useState('')
   
   // Autocomplete states
@@ -146,6 +165,12 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   useEffect(() => {
     loadInventoryData()
   }, [searchTerm, selectedCategory, selectedSupplier, selectedStatus, notWorkedOnHours])
+
+  useEffect(() => {
+    if (pagination.page !== 1) {
+      loadProducts(pagination.page)
+    }
+  }, [pagination.page])
 
   // Handle pre-selected product for replenishment
   useEffect(() => {
@@ -179,7 +204,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     try {
       setIsLoading(true)
       await Promise.all([
-        loadProducts(),
+        loadProducts(pagination.page),
         loadCategories(),
         loadSuppliers()
       ])
@@ -190,9 +215,16 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     }
   }
 
-  const loadProducts = async () => {
+  // Handle pagination
+  const handlePageChange = (newPage: number) => {
+    loadProducts(newPage)
+  }
+
+  const loadProducts = async (page = 1) => {
     try {
       const params = new URLSearchParams()
+      params.append('page', page.toString())
+      params.append('limit', pagination.limit.toString())
       if (searchTerm) params.append('search', searchTerm)
       if (selectedCategory) params.append('categoryId', selectedCategory)
       if (selectedSupplier) params.append('supplierId', selectedSupplier)
@@ -201,7 +233,15 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
 
       const response = await fetch(`/api/inventory/products?${params}`)
       const data = await response.json()
-      setProducts(Array.isArray(data) ? data : [])
+      setProducts(Array.isArray(data.products) ? data.products : data || [])
+      setPagination(data.pagination || {
+        page: 1,
+        limit: 20,
+        totalCount: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false
+      })
     } catch (error) {
       console.error('Error loading products:', error)
       setProducts([])
@@ -364,12 +404,18 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       clearTimeout(searchTimeout)
     }
     
-    // Set new timeout for search
+    // Only search if we have at least 2 characters to prevent excessive API calls
+    if (value.length >= 2) {
     const timeout = setTimeout(() => {
       searchProducts(value)
     }, 300) // 300ms delay
     
     setSearchTimeout(timeout)
+    } else {
+      // Clear suggestions for short inputs
+      setProductSuggestions([])
+      setShowProductSuggestions(false)
+    }
   }
 
   const searchSuppliers = async (searchTerm: string) => {
@@ -636,7 +682,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     })
   }
 
-  const handleUpdateExpirationQuantity = async (id, newQuantity) => {
+  const handleUpdateExpirationQuantity = async (id: string, newQuantity: number) => {
     try {
       const response = await fetch(`/api/inventory/expiration-alerts`, {
         method: 'PUT',
@@ -659,7 +705,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     }
   }
 
-  const openEditQuantityModal = (expiration) => {
+  const openEditQuantityModal = (expiration: any) => {
     setEditingExpiration(expiration)
     setEditQuantity(expiration.currentQuantity.toString())
     setEditQuantityModal(true)
@@ -677,12 +723,12 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     const newQuantity = parseInt(editQuantity) || 0
     
     // Validation côté client - empêcher TOUTE augmentation
-    if (newQuantity > editingExpiration.currentQuantity) {
+    if (newQuantity > (editingExpiration as any).currentQuantity) {
       showToast('error', 'Erreur', 'La quantité ne peut pas être augmentée. Vous pouvez seulement la diminuer.')
       return
     }
     
-    await handleUpdateExpirationQuantity(editingExpiration.id, newQuantity)
+    await handleUpdateExpirationQuantity((editingExpiration as any).id, newQuantity)
     closeEditQuantityModal()
   }
 
@@ -771,7 +817,6 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
             { id: 'overview', name: 'Vue d\'ensemble', icon: BarChart3 },
             { id: 'movements', name: 'Mouvements', icon: TrendingUp },
             { id: 'replenishment', name: 'Ravitaillement', icon: Truck },
-            { id: 'counts', name: 'Inventaires', icon: CheckCircle },
             { id: 'expirations', name: 'Péremptions', icon: AlertTriangle },
           ].map((tab) => (
             <button
@@ -847,8 +892,8 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                 className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Tous les statuts</option>
-                <option value="not_worked_on">Non travaillé</option>
-                <option value="worked_on">Travaillé</option>
+                <option value="not_worked_on">Non inventorié récemment</option>
+                <option value="worked_on">Inventorié récemment</option>
                 <option value="ok">Marqué OK</option>
                 <option value="adjusted">Ajusté</option>
               </select>
@@ -974,6 +1019,76 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={!pagination.hasPrevPage}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Précédent
+                </button>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={!pagination.hasNextPage}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Suivant
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Affichage de <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> à{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.page * pagination.limit, pagination.totalCount)}
+                    </span>{' '}
+                    sur <span className="font-medium">{pagination.totalCount}</span> résultats
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    <button
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={!pagination.hasPrevPage}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      const pageNum = i + 1
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            pageNum === pagination.page
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+                    
+                    <button
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={!pagination.hasNextPage}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1349,12 +1464,6 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
         </div>
       )}
 
-      {/* Other tabs content */}
-      {activeTab !== 'overview' && activeTab !== 'movements' && activeTab !== 'replenishment' && activeTab !== 'expirations' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-500">Contenu pour l'onglet {activeTab} - À implémenter</p>
-        </div>
-      )}
 
       {/* Expirations Tab Content */}
       {activeTab === 'expirations' && (
@@ -1427,7 +1536,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                 <option value="expired">Expirés</option>
                 <option value="critical">Critique (≤7 jours)</option>
                 <option value="close">Proche (≤30 jours)</option>
-                <option value="ok">OK (>30 jours)</option>
+                <option value="ok">OK (&gt;30 jours)</option>
               </select>
 
               {/* Clear Filters */}
@@ -1686,9 +1795,13 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                     <input
                       type="text"
                       value={productSearchTerm}
-                      onChange={(e) => handleProductSearchChange(e.target.value)}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        handleProductSearchChange(e.target.value)
+                      }}
                       placeholder="Rechercher un produit par nom, SKU ou code-barres... (ou scanner)"
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      autoComplete="off"
                     />
                     {showProductSuggestions && productSuggestions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -1755,9 +1868,14 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                     <input
                       type="number"
                       value={replenishmentData.quantity}
-                      onChange={(e) => setReplenishmentData({...replenishmentData, quantity: parseInt(e.target.value) || 0})}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        const value = parseInt(e.target.value) || 0
+                        setReplenishmentData({...replenishmentData, quantity: value})
+                      }}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       min="1"
+                      autoComplete="off"
                     />
                   </div>
 
@@ -1767,10 +1885,15 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                     <input
                       type="number"
                       value={replenishmentData.unitPrice}
-                      onChange={(e) => setReplenishmentData({...replenishmentData, unitPrice: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        const value = parseFloat(e.target.value) || 0
+                        setReplenishmentData({...replenishmentData, unitPrice: value})
+                      }}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       min="0"
                       step="0.01"
+                      autoComplete="off"
                     />
                   </div>
 
@@ -1862,7 +1985,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Heures pour considérer un produit comme "travaillé"
+                    Délai pour considérer un produit comme "récemment inventorié" (heures)
                   </label>
                   <input
                     type="number"
@@ -1871,7 +1994,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Un produit est considéré comme "travaillé" s'il a été inventorié dans les dernières {notWorkedOnHours} heures
+                    Un produit est considéré comme "récemment inventorié" s'il a été vérifié dans les {notWorkedOnHours === 1 ? 'dernière heure' : `dernières ${notWorkedOnHours} heures`}
                   </p>
                 </div>
 
@@ -1906,11 +2029,11 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
               </h3>
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">
-                  Produit: <span className="font-medium">{editingExpiration?.product?.name}</span>
+                  Produit: <span className="font-medium">{(editingExpiration as any)?.product?.name}</span>
                 </p>
                 <p className="text-sm text-gray-600 mb-2">
                   Date de péremption: <span className="font-medium">
-                    {editingExpiration?.expirationDate ? new Date(editingExpiration.expirationDate).toLocaleDateString('fr-FR') : 'N/A'}
+                    {(editingExpiration as any)?.expirationDate ? new Date((editingExpiration as any).expirationDate).toLocaleDateString('fr-FR') : 'N/A'}
                   </span>
                 </p>
               </div>
@@ -1924,11 +2047,11 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
                   onChange={(e) => setEditQuantity(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   min="0"
-                  max={editingExpiration?.currentQuantity}
+                  max={(editingExpiration as any)?.currentQuantity}
                   placeholder="Entrez la nouvelle quantité"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Quantité maximale autorisée : {editingExpiration?.currentQuantity} (quantité actuelle - vous pouvez seulement diminuer)
+                  Quantité maximale autorisée : {(editingExpiration as any)?.currentQuantity} (quantité actuelle - vous pouvez seulement diminuer)
                 </p>
               </div>
               <div className="flex justify-end space-x-3">

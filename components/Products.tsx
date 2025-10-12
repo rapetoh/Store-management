@@ -557,10 +557,17 @@ export default function Products() {
                       </button>
                       <button
                               onClick={() => {
+                                if (product.isActive) {
                                 setSelectedProduct(product)
                                 setShowConfirmModal(true)
+                                }
                               }}
-                        className="text-red-600 hover:text-red-900"
+                        className={product.isActive 
+                          ? "text-red-600 hover:text-red-900" 
+                          : "text-gray-400 cursor-not-allowed opacity-50"
+                        }
+                        disabled={!product.isActive}
+                        title={product.isActive ? "Supprimer le produit" : "Produit déjà inactif"}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

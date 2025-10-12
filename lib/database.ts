@@ -211,14 +211,25 @@ export class DatabaseService {
 
   // Customer operations
   static async getAllCustomers() {
-    return await prisma.customer.findMany({
-      where: {
-        isActive: true,
-      },
+    const customers = await prisma.customer.findMany({
       orderBy: {
         name: 'asc',
       },
+      include: {
+        sales: {
+          select: {
+            finalAmount: true,
+          },
+        },
+      },
     })
+
+    // Calculate total purchases for each customer
+    return customers.map(customer => ({
+      ...customer,
+      totalPurchases: customer.sales.reduce((total, sale) => total + sale.finalAmount, 0),
+      sales: undefined, // Remove sales data from response to keep it clean
+    }))
   }
 
   static async getCustomerById(id: string) {
@@ -870,6 +881,7 @@ export class DatabaseService {
     value: number
     minAmount?: number
     maxUses?: number
+    validFrom?: Date
     validUntil: Date
     description?: string
   }) {
@@ -889,6 +901,31 @@ export class DatabaseService {
           increment: 1,
         },
       },
+    })
+  }
+
+  static async updatePromoCode(id: string, data: {
+    code?: string
+    type?: string
+    value?: number
+    minAmount?: number
+    maxUses?: number
+    validFrom?: Date
+    validUntil?: Date
+    description?: string
+  }) {
+    return await prisma.promoCode.update({
+      where: { id },
+      data: {
+        ...data,
+        code: data.code ? data.code.toUpperCase() : undefined,
+      },
+    })
+  }
+
+  static async deletePromoCode(id: string) {
+    return await prisma.promoCode.delete({
+      where: { id },
     })
   }
 
@@ -1612,8 +1649,10 @@ export class DatabaseService {
     status?: string
     search?: string
     notWorkedOnHours?: number
+    page?: number
+    limit?: number
   } = {}) {
-    const { categoryId, supplierId, status, search, notWorkedOnHours = 24 } = filters
+    const { categoryId, supplierId, status, search, notWorkedOnHours = 24, page = 1, limit = 20 } = filters
 
     const where: any = {
       isActive: true
@@ -1647,7 +1686,15 @@ export class DatabaseService {
       where.lastInventoryStatus = 'ADJUSTED'
     }
 
-    return await prisma.product.findMany({
+    // Get total count for pagination
+    const totalCount = await prisma.product.count({ where })
+
+    // Calculate pagination
+    const totalPages = Math.ceil(totalCount / limit)
+    const offset = (page - 1) * limit
+
+    // Get products with pagination
+    const products = await prisma.product.findMany({
       where,
       include: {
         category: true,
@@ -1656,7 +1703,21 @@ export class DatabaseService {
       orderBy: {
         name: 'asc',
       },
+      skip: offset,
+      take: limit,
     })
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    }
   }
 
   // Inventory Movements Methods
@@ -1716,8 +1777,8 @@ export class DatabaseService {
       } else if (movement.type === 'ajustement') {
         // For adjustments: calculate based on whether it's a gain or loss
         if (movement.quantity > 0) {
-          // Stock increase: positive impact (we gain value)
-          financialImpact = movement.product.costPrice * movement.quantity
+          // Stock increase: zero impact (restocking doesn't represent financial loss/gain)
+          financialImpact = 0
         } else {
           // Stock decrease: negative impact (we lose money due to missing inventory)
           financialImpact = movement.product.costPrice * movement.quantity

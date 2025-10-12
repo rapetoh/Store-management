@@ -9,7 +9,7 @@ interface PromoCode {
   type: 'percentage' | 'fixed'
   value: number
   minAmount: number
-  maxUses?: number
+  maxUses: number | null
   usedCount: number
   validUntil: Date
   description: string

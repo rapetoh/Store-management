@@ -86,7 +86,7 @@ export default function InventoryInsightsModal({ isOpen, onClose }: InventoryIns
               <Package className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Insights d'Inventaire</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Aperçu d'Inventaire</h2>
               <p className="text-sm text-gray-600">Métriques d'inventaire par date</p>
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function InventoryInsightsModal({ isOpen, onClose }: InventoryIns
                       <CheckCircle className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-green-600 font-medium">Inventoriés</p>
+                      <p className="text-sm text-green-600 font-medium">Vérifiés OK</p>
                       <p className="text-2xl font-bold text-green-900">{totalInventoried}</p>
                     </div>
                   </div>
@@ -138,7 +138,7 @@ export default function InventoryInsightsModal({ isOpen, onClose }: InventoryIns
               {totalProducts > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Progression d'inventaire</span>
+                    <span className="text-sm font-medium text-gray-700">Produits vérifiés (statut OK récent)</span>
                     <span className="text-sm text-gray-500">{Math.round((totalInventoried / totalProducts) * 100)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -147,6 +147,9 @@ export default function InventoryInsightsModal({ isOpen, onClose }: InventoryIns
                       style={{ width: `${(totalInventoried / totalProducts) * 100}%` }}
                     ></div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Seuls les produits avec statut "OK" vérifiés récemment sont comptés
+                  </p>
                 </div>
               )}
 

@@ -370,7 +370,7 @@ export default function Home() {
                   <button
                     onClick={handleInventoryAdjustment}
                     className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
-                    title="Ajustement de stock"
+                    title="Aperçu d'inventaire"
                   >
                     <Package className="w-5 h-5" />
                   </button>

@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate')
     const paymentMethod = searchParams.get('paymentMethod')
     const customerId = searchParams.get('customerId')
+    const categoryId = searchParams.get('categoryId')
 
     // Build where clause
     const where: any = {}
@@ -25,6 +26,17 @@ export async function GET(request: NextRequest) {
 
     if (customerId) {
       where.customerId = customerId
+    }
+    
+    // For category filtering, we need to filter by products in sale items
+    if (categoryId) {
+      where.items = {
+        some: {
+          product: {
+            categoryId: categoryId
+          }
+        }
+      }
     }
 
     // Get sales data

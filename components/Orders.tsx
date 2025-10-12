@@ -87,6 +87,7 @@ export default function Sales() {
   const [showEditSaleModal, setShowEditSaleModal] = useState(false)
   const [showSaleDetailsModal, setShowSaleDetailsModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
+  const [shouldOpenSaleAfterWarning, setShouldOpenSaleAfterWarning] = useState(false)
 
   useEffect(() => {
     loadSales()
@@ -218,8 +219,52 @@ export default function Sales() {
     }
   }
 
-  const handleAddSale = () => {
+  const displayInfoModal = (title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', icon: string) => {
+    setInfoModalData({ title, message, type, icon })
+    setShowInfoModal(true)
+  }
+
+  const handleInfoModalClose = () => {
+    setShowInfoModal(false)
+    // If we should open sale modal after warning, do it now
+    if (shouldOpenSaleAfterWarning) {
+      setShouldOpenSaleAfterWarning(false)
+      setShowQuickSaleModal(true)
+    }
+  }
+
+  const handleAddSale = async () => {
+    // Check cash register status before opening sale modal
+    try {
+      const cashSessionResponse = await fetch('/api/cash')
+      const cashData = await cashSessionResponse.json()
+      
+      if (!cashData.currentSession) {
+        // Show warning before opening sale modal
+        setShouldOpenSaleAfterWarning(true)
+        displayInfoModal(
+          'Caisse non ouverte',
+          'Aucune session de caisse n\'est actuellement ouverte.\n\nIl serait recommandé d\'ouvrir la caisse avant de traiter une vente, surtout si elle sera payée en espèces.\n\nVoulez-vous continuer quand même ?',
+          'warning',
+          'alertTriangle'
+        )
+        // Sale modal will open when user dismisses the warning (handled in onInfoModalClose)
+      } else {
+        // Cash register is open, proceed normally
     setShowQuickSaleModal(true)
+      }
+    } catch (error) {
+      console.error('Error checking cash register status:', error)
+      // On error, still allow sale but show a warning
+      setShouldOpenSaleAfterWarning(true)
+      displayInfoModal(
+        'Statut de caisse inconnu',
+        'Impossible de vérifier le statut de la caisse. Vous pouvez continuer avec la vente.',
+        'warning',
+        'alertTriangle'
+      )
+      // Sale modal will open when user dismisses the warning (handled in onInfoModalClose)
+    }
   }
 
   const logActivity = async (action: string, details: string, financialImpact?: number) => {
@@ -281,19 +326,35 @@ export default function Sales() {
     setShowDeleteModal(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedSale) {
+      try {
+        // Make API call to delete sale from database
+        const response = await fetch(`/api/sales/${selectedSale.id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
       // Log the deletion activity
       logActivity(
         'modification',
-        `Suppression vente #${selectedSale.id} - Total: ${selectedSale.total.toLocaleString('fr-FR')} FCFA`,
-        -(selectedSale.total || 0) // Negative impact for deletion
+            `Suppression vente #${selectedSale.id} - Total: ${selectedSale.finalAmount.toLocaleString('fr-FR')} FCFA`,
+            -(selectedSale.finalAmount || 0) // Negative impact for deletion
       )
       
+          // Remove from local state
       setSales(prev => prev.filter(s => s.id !== selectedSale.id))
       showToast('success', 'Vente supprimée', `La vente "${selectedSale.id}" a été supprimée avec succès.`)
       setSelectedSale(null)
       setShowDeleteModal(false)
+        } else {
+          const errorData = await response.json()
+          showToast('error', 'Erreur', errorData.error || 'Impossible de supprimer la vente')
+        }
+      } catch (error) {
+        console.error('Error deleting sale:', error)
+        showToast('error', 'Erreur', 'Erreur lors de la suppression de la vente')
+      }
     }
   }
 
@@ -604,7 +665,7 @@ export default function Sales() {
 
       <InfoModal
         isOpen={showInfoModal}
-        onClose={() => setShowInfoModal(false)}
+        onClose={handleInfoModalClose}
         title={infoModalData.title}
         message={infoModalData.message}
         type={infoModalData.type}

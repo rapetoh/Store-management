@@ -6,6 +6,16 @@ const prisma = new PrismaClient()
 // GET - Get inventory insights
 export async function GET(request: NextRequest) {
   try {
+    // Get inventory time threshold from settings (default: 24 hours)
+    const notWorkedOnHoursSetting = await prisma.userSettings.findUnique({
+      where: { key: 'notWorkedOnHours' }
+    })
+    const notWorkedOnHours = notWorkedOnHoursSetting ? parseInt(notWorkedOnHoursSetting.value) : 24
+
+    // Calculate cutoff date for "recently inventoried" products
+    const cutoffDate = new Date()
+    cutoffDate.setHours(cutoffDate.getHours() - notWorkedOnHours)
+
     // Get total products count
     const totalProducts = await prisma.product.count({
       where: {
@@ -13,12 +23,13 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Get total inventoried products count
+    // Get total properly inventoried products count (OK status within time threshold)
     const totalInventoried = await prisma.product.count({
       where: {
         isActive: true,
+        lastInventoryStatus: 'OK',
         lastInventoryDate: {
-          not: null
+          gte: cutoffDate
         }
       }
     })
@@ -69,12 +80,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       insights: finalInsights,
       totalProducts,
-      totalInventoried,
+      totalInventoried, // Only counts products with OK status within time threshold
       summary: {
         totalSessions: finalInsights.length,
         averagePerSession: finalInsights.length > 0 
           ? Math.round(finalInsights.reduce((sum, insight) => sum + insight.count, 0) / finalInsights.length)
-          : 0
+          : 0,
+        timeThresholdHours: notWorkedOnHours
       }
     })
   } catch (error) {

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { X, Search, Plus, Minus, Receipt, Printer, Barcode, Percent, User, Mail, Phone, CreditCard, Trash2 } from 'lucide-react'
-import DiscountModal from './DiscountModal'
 import CashRegisterWarningModal from './CashRegisterWarningModal'
 import PromoCodeModal from './PromoCodeModal'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
@@ -53,22 +52,13 @@ interface PromoCode {
   type: 'percentage' | 'fixed'
   value: number
   minAmount: number
-  maxUses: number
+  maxUses: number | null
   usedCount: number
   validUntil: Date
   description: string
   isActive: boolean
 }
 
-interface DiscountRule {
-  id: string
-  name: string
-  type: 'percentage' | 'fixed'
-  value: number
-  minQuantity: number
-  maxQuantity: number
-  isActive: boolean
-}
 
 interface PaymentMethod {
   id: string
@@ -91,12 +81,10 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     loyaltyCard: ''
   })
   const [appliedPromos, setAppliedPromos] = useState<PromoCode[]>([])
-  const [appliedDiscount, setAppliedDiscount] = useState<DiscountRule | null>(null)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
-  const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showCashRegisterWarning, setShowCashRegisterWarning] = useState(false)
   const [defaultTaxRate, setDefaultTaxRate] = useState<{ rate: number } | null>(null)
   
@@ -419,23 +407,13 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     return totalDiscount
   }
 
-  const getDiscountAmount = () => {
-    if (!appliedDiscount) return 0
-    
-    if (appliedDiscount.type === 'percentage') {
-      return (getSubtotal() * appliedDiscount.value) / 100
-    } else {
-      return appliedDiscount.value
-    }
-  }
 
   const getTotal = () => {
     const subtotal = getSubtotal()
     const promoDiscount = getPromoDiscount()
-    const discountAmount = getDiscountAmount()
     const taxAmount = calculateTaxAmount()
     
-    return subtotal - promoDiscount - discountAmount + taxAmount
+    return subtotal - promoDiscount + taxAmount
   }
 
   const handlePromoCode = async (code: string) => {
@@ -462,21 +440,12 @@ export default function QuickSaleModal({ isOpen, onClose }: QuickSaleModalProps)
     }
   }
 
-  const handleDiscountApplied = (discount: DiscountRule) => {
-    setAppliedDiscount(discount)
-    setShowDiscountModal(false)
-    showToast('success', 'Remise appliquée', `Remise ${discount.name} appliquée`)
-  }
 
   const removePromo = (promoId: string) => {
     setAppliedPromos(prev => prev.filter(promo => promo.id !== promoId))
     showToast('info', 'Code promo supprimé', 'Code promo retiré du panier')
   }
 
-  const removeDiscount = () => {
-    setAppliedDiscount(null)
-    showToast('info', 'Remise supprimée', 'La remise a été supprimée du panier')
-  }
   
 
 
@@ -556,7 +525,6 @@ ${item.discount > 0 ? `Remise: -${(item.discount * item.quantity).toLocaleString
 =================================
 Sous-total: ${getSubtotal().toLocaleString('fr-FR')} FCFA
 ${appliedPromos.length > 0 ? `Remise promo: -${getPromoDiscount().toLocaleString('fr-FR')} FCFA` : ''}
-${appliedDiscount ? `Remise: -${getDiscountAmount().toLocaleString('fr-FR')} FCFA` : ''}
 TVA: ${calculateTaxAmount().toLocaleString('fr-FR')} FCFA
 TOTAL: ${getTotal().toLocaleString('fr-FR')} FCFA
 =================================
@@ -624,7 +592,7 @@ Merci de votre visite !
       const saleData = {
         customerId: customerId,
         totalAmount: getSubtotal(),
-        discountAmount: getPromoDiscount() + getDiscountAmount(),
+        discountAmount: getPromoDiscount(),
         taxAmount: calculateTaxAmount(),
         finalAmount: getTotal(),
         paymentMethod: selectedPaymentMethod,
@@ -670,7 +638,6 @@ Merci de votre visite !
       setCart([])
       setCustomerInfo({ name: '', email: '', phone: '', loyaltyCard: '' })
       setAppliedPromos([])
-      setAppliedDiscount(null)
       setSearchTerm('')
       
       showToast('success', 'Vente terminée', `Vente ${sale.id} enregistrée avec succès`)
@@ -1015,34 +982,6 @@ Merci de votre visite !
                 </div>
               </div>
 
-              {/* Discounts */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Remises</h3>
-                <div className="space-y-3">
-                  {appliedDiscount && (
-                    <div className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-purple-800">{appliedDiscount.name}</p>
-                        <p className="text-sm text-purple-600">
-                          {appliedDiscount.type === 'percentage' ? `${appliedDiscount.value}%` : `${appliedDiscount.value.toLocaleString('fr-FR')} FCFA`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={removeDiscount}
-                        className="text-purple-600 hover:text-purple-800"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setShowDiscountModal(true)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    Gérer les remises
-                  </button>
-                </div>
-              </div>
 
               {/* Payment Method */}
               <div className="space-y-3">
@@ -1082,14 +1021,6 @@ Merci de votre visite !
                       </span>
                       <span className="font-medium text-green-600">
                         -{getPromoDiscount().toLocaleString('fr-FR')} FCFA
-                      </span>
-                    </div>
-                  )}
-                  {appliedDiscount && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Remise:</span>
-                      <span className="font-medium text-purple-600">
-                        -{getDiscountAmount().toLocaleString('fr-FR')} FCFA
                       </span>
                     </div>
                   )}
@@ -1149,14 +1080,6 @@ Merci de votre visite !
           </div>
         </div>
 
-        {/* Discount Modal */}
-        <DiscountModal
-          isOpen={showDiscountModal}
-          onClose={() => setShowDiscountModal(false)}
-          onDiscountApplied={handleDiscountApplied}
-          cartItems={cart}
-          totalAmount={getSubtotal()}
-        />
 
         {/* Promo Code Modal */}
         <PromoCodeModal

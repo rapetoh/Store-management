@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const categoryId = searchParams.get('categoryId')
+    const paymentMethod = searchParams.get('paymentMethod')
 
     // Build where clause for sales
     const saleWhere: any = {}
@@ -14,6 +16,21 @@ export async function GET(request: NextRequest) {
       saleWhere.saleDate = {
         gte: new Date(startDate),
         lte: new Date(endDate)
+      }
+    }
+    
+    if (paymentMethod) {
+      saleWhere.paymentMethod = paymentMethod
+    }
+    
+    // For category filtering, we need to filter by products in sale items
+    if (categoryId) {
+      saleWhere.items = {
+        some: {
+          product: {
+            categoryId: categoryId
+          }
+        }
       }
     }
 

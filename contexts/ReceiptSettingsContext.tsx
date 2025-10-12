@@ -37,12 +37,12 @@ const defaultReceiptSettings: ReceiptSettings = {
 }
 
 const defaultCompanyInfo: CompanyInfo = {
-  name: 'StockFlow',
-  address: '123 Rue du Commerce\n75001 Paris, France',
-  phone: '+33 1 23 45 67 89',
-  email: 'contact@stockflow.fr',
-  siret: '123 456 789 00012',
-  vatNumber: 'FR12345678901'
+  name: 'Mon Panier',
+  address: '123 Rue du Commerce\nLomé, Togo',
+  phone: '+228 22 23 45 67',
+  email: 'contact@monpanier.tg',
+  siret: '123456789',
+  vatNumber: 'TG123456789'
 }
 
 const ReceiptSettingsContext = createContext<ReceiptSettingsContextType | undefined>(undefined)

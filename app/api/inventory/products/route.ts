@@ -11,16 +11,20 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || undefined
     const notWorkedOnHours = searchParams.get('notWorkedOnHours') ? 
       parseInt(searchParams.get('notWorkedOnHours')!) : 24
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
 
-    const products = await DatabaseService.getProductsForInventory({
+    const result = await DatabaseService.getProductsForInventory({
       categoryId,
       supplierId,
       status: status || undefined,
       search,
-      notWorkedOnHours
+      notWorkedOnHours,
+      page,
+      limit
     })
     
-    return NextResponse.json(products)
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching inventory products:', error)
     return NextResponse.json(

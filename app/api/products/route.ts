@@ -37,13 +37,12 @@ export async function GET(request: NextRequest) {
       where.categoryId = categoryId
     }
     
-    // By default, only show active products unless explicitly requested
+    // Handle isActive filter
     if (isActive !== null && isActive !== undefined && isActive !== '') {
       where.isActive = isActive === 'true'
-    } else {
-      // Default to active products only
-      where.isActive = true
     }
+    // If isActive is empty string (''), show all products (both active and inactive)
+    // No where clause added for isActive in this case
     
     if (outOfStock) {
       where.stock = 0

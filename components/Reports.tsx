@@ -45,12 +45,6 @@ const reports: Report[] = [
     name: 'Analyse clients',
     type: 'customers',
     icon: Users
-  },
-  {
-    id: 'cash-flow',
-    name: 'Flux de trésorerie',
-    type: 'sales',
-    icon: DollarSign
   }
 ]
 
@@ -104,7 +98,7 @@ export default function Reports() {
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [infoModalData, setInfoModalData] = useState({ title: '', message: '', type: 'info' as const, icon: 'info' as const })
   const [showAdvancedModal, setShowAdvancedModal] = useState(false)
-  const [advancedModalType, setAdvancedModalType] = useState<'sales' | 'inventory' | 'customers' | 'financial' | 'custom'>('sales')
+  const [advancedModalType, setAdvancedModalType] = useState<'sales' | 'inventory' | 'customers' | 'custom'>('sales')
   const [customDateRange, setCustomDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]

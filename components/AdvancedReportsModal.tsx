@@ -51,12 +51,12 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
     }
   }, [isOpen])
 
-  // Regenerate report when period or date range changes
+  // Regenerate report when period, date range, or filters change
   useEffect(() => {
     if (isOpen) {
       generateReport()
     }
-  }, [selectedPeriod, customDateRange, isOpen])
+  }, [selectedPeriod, customDateRange, selectedFilters, isOpen])
 
   const loadCategories = async () => {
     try {
@@ -698,6 +698,7 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                       </>
                     )}
 
+
                                         {type === 'customers' && (
                       <>
                         <div className="bg-blue-50 rounded-lg p-4">
@@ -762,6 +763,111 @@ export default function AdvancedReportsModal({ isOpen, onClose, onReportGenerate
                     </div>
                     )}
 
+
+                    {/* Inventory Category Breakdown - Pie Chart */}
+                    {type === 'inventory' && generatedReport.data.inventoryData?.categoryBreakdown && generatedReport.data.inventoryData.categoryBreakdown.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition par catégorie</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RechartsPieChart>
+                            <Pie
+                              data={generatedReport.data.inventoryData.categoryBreakdown.map((item: any, index: number) => ({
+                                name: item.name,
+                                value: item.totalValue,
+                                fill: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'][index % 6]
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            />
+                            <Tooltip formatter={(value: any) => [formatCurrency(value), 'Valeur']} />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Inventory Stock Levels - Bar Chart */}
+                    {type === 'inventory' && generatedReport.data.inventoryData?.topStockValue && generatedReport.data.inventoryData.topStockValue.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Top produits par valeur stock</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={generatedReport.data.inventoryData.topStockValue.slice(0, 6).map((item: any) => ({
+                            name: item.product.name.length > 15 ? item.product.name.substring(0, 15) + '...' : item.product.name,
+                            value: item.stockValue,
+                            stock: item.product.stock,
+                            minStock: item.product.minStock
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => [formatCurrency(value), 'Valeur stock']} />
+                            <Bar dataKey="value" fill="#3B82F6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Inventory Status Breakdown */}
+                    {type === 'inventory' && generatedReport.data.inventoryData?.insights && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Statut des inventaires (récents)</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={[
+                            {
+                              status: 'OK récent',
+                              count: generatedReport.data.inventoryData.insights.inventoryStatusOK,
+                              fill: '#10B981'
+                            },
+                            {
+                              status: 'Ajusté récent',
+                              count: generatedReport.data.inventoryData.insights.inventoryStatusAdjusted,
+                              fill: '#F59E0B'
+                            },
+                            {
+                              status: 'Non vérifié',
+                              count: generatedReport.data.inventoryData.insights.inventoryStatusUnknown,
+                              fill: '#EF4444'
+                            }
+                          ]}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="status" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any) => [`${value} produits`, 'Nombre']} />
+                            <Bar dataKey="count" fill="#3B82F6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Inventory Movement Stats */}
+                    {type === 'inventory' && generatedReport.data.inventoryData?.movementStats && generatedReport.data.inventoryData.movementStats.length > 0 && (
+                      <div className="bg-white rounded-lg shadow p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Statistiques des mouvements</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={generatedReport.data.inventoryData.movementStats.map((item: any) => ({
+                            type: item.type.charAt(0).toUpperCase() + item.type.slice(1),
+                            quantity: Math.abs(item.totalQuantity),
+                            count: item.count,
+                            fill: item.type === 'vente' ? '#EF4444' : item.type === 'achat' ? '#10B981' : '#3B82F6'
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="type" />
+                            <YAxis />
+                            <Tooltip 
+                              formatter={(value: any, name: string) => [
+                                name === 'quantity' ? `${value} unités` : `${value} opérations`,
+                                name === 'quantity' ? 'Quantité' : 'Nombre'
+                              ]} 
+                            />
+                            <Bar dataKey="quantity" fill="#3B82F6" name="quantity" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
 
                     {/* Payment Methods */}
                     {type === 'sales' && generatedReport.data.paymentMethods && generatedReport.data.paymentMethods.length > 0 && (

@@ -24,7 +24,7 @@ function ToastComponent({ toast, onRemove }: ToastProps) {
     const timer = setTimeout(() => {
       setIsVisible(false)
       setTimeout(() => onRemove(toast.id), 300)
-    }, toast.duration || 5000)
+    }, toast.duration || 2000)
 
     return () => clearTimeout(timer)
   }, [toast.id, toast.duration, onRemove])

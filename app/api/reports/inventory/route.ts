@@ -7,8 +7,10 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('categoryId')
     const lowStock = searchParams.get('lowStock') === 'true'
     const outOfStock = searchParams.get('outOfStock') === 'true'
-    // Note: startDate and endDate parameters are ignored for inventory 
-    // as inventory represents current state, not historical data
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    const paymentMethod = searchParams.get('paymentMethod')
+    // Note: For inventory analysis, date filters can show inventory movements trends
 
     // Build where clause for products
     const productWhere: any = {
@@ -69,8 +71,25 @@ export async function GET(request: NextRequest) {
       outOfStockProducts: 0
     })
 
+    // Build where clause for movements
+    const movementWhere: any = {}
+    
+    if (startDate && endDate) {
+      movementWhere.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      }
+    }
+    
+    if (categoryId) {
+      movementWhere.product = {
+        categoryId: categoryId
+      }
+    }
+    
     // Get recent inventory movements
     const recentMovements = await prisma.inventoryMovement.findMany({
+      where: movementWhere,
       include: {
         product: {
           include: {
@@ -84,9 +103,15 @@ export async function GET(request: NextRequest) {
       take: 20
     })
 
-    // Get movement statistics by type
+    // Get movement statistics by type (exclude 'in' type movements as they're rare)
     const movementStats = await prisma.inventoryMovement.groupBy({
       by: ['type'],
+      where: {
+        ...movementWhere,
+        type: {
+          not: 'in'
+        }
+      },
       _sum: {
         quantity: true
       },
@@ -130,6 +155,84 @@ export async function GET(request: NextRequest) {
       product.stock <= product.minStock && product.stock > 0
     )
 
+    // Get inventory time threshold from settings (default: 24 hours)
+    const notWorkedOnHoursSetting = await prisma.userSettings.findUnique({
+      where: { key: 'notWorkedOnHours' }
+    })
+    const notWorkedOnHours = notWorkedOnHoursSetting ? parseInt(notWorkedOnHoursSetting.value) : 24
+
+    // Calculate cutoff date for "recently inventoried" products
+    const cutoffDate = new Date()
+    cutoffDate.setHours(cutoffDate.getHours() - notWorkedOnHours)
+
+    // Inventory Insights - Date-based analysis
+    const now = new Date()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+    const inventoryInsights = {
+      // Products inventoried recently
+      inventoriedLast30Days: products.filter(p => 
+        p.lastInventoryDate && new Date(p.lastInventoryDate) >= thirtyDaysAgo
+      ).length,
+      
+      // Products not inventoried in various periods
+      notInventoried30Days: products.filter(p => 
+        !p.lastInventoryDate || new Date(p.lastInventoryDate) < thirtyDaysAgo
+      ).length,
+      
+      notInventoried60Days: products.filter(p => 
+        !p.lastInventoryDate || new Date(p.lastInventoryDate) < sixtyDaysAgo
+      ).length,
+      
+      notInventoried90Days: products.filter(p => 
+        !p.lastInventoryDate || new Date(p.lastInventoryDate) < ninetyDaysAgo
+      ).length,
+      
+      // Never inventoried
+      neverInventoried: products.filter(p => !p.lastInventoryDate).length,
+      
+      // Inventory status breakdown (using time threshold)
+      inventoryStatusOK: products.filter(p => 
+        p.lastInventoryStatus === 'OK' && 
+        p.lastInventoryDate && 
+        new Date(p.lastInventoryDate) >= cutoffDate
+      ).length,
+      inventoryStatusAdjusted: products.filter(p => 
+        p.lastInventoryStatus === 'ADJUSTED' && 
+        p.lastInventoryDate && 
+        new Date(p.lastInventoryDate) >= cutoffDate
+      ).length,
+      inventoryStatusUnknown: products.filter(p => 
+        !p.lastInventoryStatus || 
+        !p.lastInventoryDate || 
+        new Date(p.lastInventoryDate) < cutoffDate
+      ).length,
+      
+      // Age analysis
+      totalProducts: products.length,
+      inventoriedProducts: products.filter(p => p.lastInventoryDate).length,
+      
+      // Value at risk (products not inventoried in 60+ days)
+      valueAtRisk: products
+        .filter(p => !p.lastInventoryDate || new Date(p.lastInventoryDate) < sixtyDaysAgo)
+        .reduce((sum, p) => sum + (p.stock * p.price), 0),
+      
+      // Average days since last inventory
+      averageDaysSinceInventory: (() => {
+        const inventoriedProducts = products.filter(p => p.lastInventoryDate)
+        if (inventoriedProducts.length === 0) return null
+        
+        const totalDays = inventoriedProducts.reduce((sum, p) => {
+          const daysSince = Math.floor((now.getTime() - new Date(p.lastInventoryDate!).getTime()) / (1000 * 60 * 60 * 24))
+          return sum + daysSince
+        }, 0)
+        
+        return Math.round(totalDays / inventoriedProducts.length)
+      })()
+    }
+
     return NextResponse.json({
       products,
       metrics: {
@@ -149,7 +252,8 @@ export async function GET(request: NextRequest) {
       })),
       categoryBreakdown: Object.values(categoryInventory),
       topStockValue,
-      needsReorder
+      needsReorder,
+      insights: inventoryInsights
     })
   } catch (error) {
     console.error('Error fetching inventory report:', error)
