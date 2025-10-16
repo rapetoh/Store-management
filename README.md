@@ -1,9 +1,5 @@
 # 📦 StockFlow — Modern Inventory Management App
-<img width="1427" height="811" alt="image" src="https://github.com/user-attachments/assets/b61c4001-7dc0-4b10-8bea-e2ae1f5f076e" />
-<img width="1899" height="672" alt="image" src="https://github.com/user-attachments/assets/ed8ce7e9-9181-4adc-a03c-516c088c861a" />
-<img width="1900" height="908" alt="image" src="https://github.com/user-attachments/assets/1d6fb7ed-005b-4a6a-9879-57c1a3a88ef7" />
-<img width="1912" height="594" alt="image" src="https://github.com/user-attachments/assets/b0bb7479-604f-4be2-9036-2501ecfcc66c" />
-<img width="1816" height="870" alt="image" src="https://github.com/user-attachments/assets/a14ed1da-f9ad-4fd3-a632-bc56abb91736" />
+<img width="427" height="411" alt="image" src="https://github.com/user-attachments/assets/b61c4001-7dc0-4b10-8bea-e2ae1f5f076e" /><img width="899" height="372" alt="image" src="https://github.com/user-attachments/assets/ed8ce7e9-9181-4adc-a03c-516c088c861a" /><img width="900" height="308" alt="image" src="https://github.com/user-attachments/assets/1d6fb7ed-005b-4a6a-9879-57c1a3a88ef7" /><img width="912" height="294" alt="image" src="https://github.com/user-attachments/assets/b0bb7479-604f-4be2-9036-2501ecfcc66c" /><img width="816" height="470" alt="image" src="https://github.com/user-attachments/assets/a14ed1da-f9ad-4fd3-a632-bc56abb91736" />
 
 
 
