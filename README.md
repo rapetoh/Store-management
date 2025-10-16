@@ -1,240 +1,141 @@
-# 📦 StockFlow - Application de Gestion de Stock Moderne
+# 📦 StockFlow — Modern Inventory Management App
 
-Une application web moderne, épurée et **non conventionnelle** de gestion de stock pour les PME. StockFlow offre une expérience utilisateur unique avec un design immersif et fluide.
-
-## ✨ Caractéristiques
-
-### 🎨 Design Non-Conventionnel
-- **Interface unique** : Pas de sidebar gauche traditionnelle ni de topbar bleue
-- **Navigation flottante** : Menu orbiculaire avec animations fluides
-- **Cartes flottantes** : Effet de verre (glassmorphism) avec ombres dynamiques
-- **Palette moderne** : Gris clair, bleu nuit, vert clair/turquoise
-- **Animations fluides** : Transitions douces et micro-interactions
-
-### 🚀 Fonctionnalités Principales
-
-#### 📊 Dashboard
-- Vue d'ensemble des stocks en temps réel
-- Graphiques interactifs (Recharts)
-- Statistiques détaillées (ventes, alertes, tendances)
-- Produits en seuil critique avec alertes visuelles
-
-#### 📦 Gestion des Produits
-- Liste interactive avec filtres avancés
-- Détails complets : nom, catégorie, fournisseur, stock, prix
-- Système d'alertes automatiques pour stock faible
-- Recherche rapide et filtres multiples
-
-#### 📋 Commandes
-- Création et suivi des commandes
-- Statuts visuels (livré, expédié, en attente, annulé)
-- Filtres par client, date, statut
-- Import/Export de données
-
-#### 📈 Rapports
-- 6 types de rapports prédéfinis
-- Graphiques interactifs
-- Export PDF et Excel
-- Rapports personnalisables
-
-#### ⚙️ Paramètres
-- Configuration complète de l'application
-- Gestion des notifications
-- Paramètres de sécurité
-- Personnalisation de l'apparence
-
-## 🛠️ Technologies Utilisées
-
-### Frontend
-- **Next.js 14** - Framework React moderne
-- **React 18** - Bibliothèque UI
-- **TypeScript** - Typage statique
-- **Tailwind CSS** - Framework CSS utilitaire
-- **Framer Motion** - Animations fluides
-- **Recharts** - Graphiques interactifs
-- **Lucide React** - Icônes modernes
-- **React Hook Form** - Gestion des formulaires
-
-### Design System
-- **Palette de couleurs** : Gris clair, bleu nuit, turquoise
-- **Typographie** : Inter (Google Fonts)
-- **Effets visuels** : Glassmorphism, ombres dynamiques
-- **Animations** : Transitions fluides, micro-interactions
-
-## 🚀 Installation
-
-### Prérequis
-- Node.js 18+ 
-- npm ou yarn
-
-### Installation
-
-1. **Cloner le repository**
-```bash
-git clone <repository-url>
-cd stockflow-app
-```
-
-2. **Installer les dépendances**
-```bash
-npm install
-# ou
-yarn install
-```
-
-3. **Lancer le serveur de développement**
-```bash
-npm run dev
-# ou
-yarn dev
-```
-
-4. **Ouvrir l'application**
-```
-http://localhost:3000
-```
-
-## 📁 Structure du Projet
-
-```
-stockflow-app/
-├── app/                    # App Router (Next.js 14)
-│   ├── globals.css        # Styles globaux
-│   ├── layout.tsx         # Layout principal
-│   └── page.tsx           # Page d'accueil
-├── components/             # Composants React
-│   ├── Dashboard.tsx      # Dashboard principal
-│   ├── Products.tsx       # Gestion des produits
-│   ├── Orders.tsx         # Gestion des commandes
-│   ├── Reports.tsx        # Rapports et analytics
-│   └── Settings.tsx       # Paramètres
-├── public/                # Assets statiques
-├── tailwind.config.js     # Configuration Tailwind
-├── next.config.js         # Configuration Next.js
-└── package.json           # Dépendances
-```
-
-## 🎨 Design System
-
-### Couleurs
-```css
-/* Primary Colors */
-primary-500: #0ea5e9 (Bleu)
-primary-600: #0284c7
-
-/* Night Colors */
-night-50: #f8fafc
-night-800: #1e293b
-night-900: #0f172a
-
-/* Turquoise Colors */
-turquoise-500: #14b8a6
-turquoise-600: #0d9488
-```
-
-### Composants
-- **Floating Cards** : Cartes avec effet glassmorphism
-- **Navigation Orb** : Menu circulaire flottant
-- **Gradient Text** : Texte avec dégradé
-- **Pulse Glow** : Effet de pulsation lumineuse
-
-## 🔧 Configuration
-
-### Tailwind CSS
-Le projet utilise une configuration personnalisée de Tailwind CSS avec :
-- Palette de couleurs étendue
-- Animations personnalisées
-- Composants utilitaires
-
-### Animations
-Les animations sont gérées par Framer Motion avec :
-- Transitions fluides entre les pages
-- Micro-interactions sur les éléments
-- Animations d'entrée et de sortie
-
-## 📱 Responsive Design
-
-L'application est entièrement responsive avec :
-- **Mobile First** : Optimisé pour les petits écrans
-- **Tablet** : Adaptation pour les tablettes
-- **Desktop** : Expérience complète sur grand écran
-
-## 🚀 Déploiement
-
-### Vercel (Recommandé)
-```bash
-npm run build
-vercel --prod
-```
-
-### Autres plateformes
-- **Netlify** : Compatible avec Next.js
-- **Railway** : Déploiement simple
-- **Render** : Alternative gratuite
-
-## 📊 Fonctionnalités Avancées
-
-### Gestion des Données
-- **État local** : Gestion avec React hooks
-- **Filtres dynamiques** : Recherche et filtrage en temps réel
-- **Validation** : Formulaires avec validation
-
-### Performance
-- **Lazy Loading** : Chargement optimisé
-- **Code Splitting** : Séparation automatique du code
-- **Optimisations** : Images et assets optimisés
-
-## 🔒 Sécurité
-
-- **Authentification** : Système JWT (à implémenter)
-- **Validation** : Validation côté client et serveur
-- **Sanitisation** : Protection contre les injections
-
-## 📈 Roadmap
-
-### Phase 1 (Actuelle)
-- ✅ Interface utilisateur complète
-- ✅ Navigation non-conventionnelle
-- ✅ Composants principaux
-- ✅ Design system
-
-### Phase 2 (Prochaine)
-- 🔄 Backend API (Node.js + Express)
-- 🔄 Base de données (MongoDB/PostgreSQL)
-- 🔄 Authentification JWT
-- 🔄 API REST complète
-
-### Phase 3 (Future)
-- 📋 Notifications en temps réel
-- 📋 Export PDF/Excel
-- 📋 Intégration paiements
-- 📋 Mobile app (React Native)
-
-## 🤝 Contribution
-
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commit les changements (`git commit -m 'Add AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 👥 Équipe
-
-- **Design** : Interface non-conventionnelle et moderne
-- **Développement** : Next.js, React, TypeScript
-- **UX/UI** : Expérience utilisateur immersive
-
-## 📞 Support
-
-Pour toute question ou support :
-- 📧 Email : support@stockflow.com
-- 📱 Discord : [Serveur StockFlow]
-- 📖 Documentation : [Wiki du projet]
+**StockFlow** is a modern, sleek, and **non-conventional** web application for small and medium-sized businesses.  
+It delivers a smooth, immersive user experience with a unique visual design and fluid navigation.
 
 ---
 
-**StockFlow** - Révolutionnez votre gestion de stock avec une interface moderne et non-conventionnelle ! 🚀 
+## ✨ Key Features
+
+### 🎨 Non-Conventional Design
+- **Unique Interface:** No traditional left sidebar or blue top bar  
+- **Floating Navigation:** Circular, animated orb-style menu  
+- **Floating Cards:** Glassmorphism effects with dynamic shadows  
+- **Modern Palette:** Light gray, midnight blue, soft turquoise  
+- **Smooth Animations:** Gentle transitions and micro-interactions  
+
+### 🚀 Core Functionality
+
+#### 📊 Dashboard
+- Real-time overview of stock levels  
+- Interactive charts (Recharts)  
+- Detailed statistics (sales, alerts, trends)  
+- Visual alerts for low-stock items  
+
+#### 📦 Product Management
+- Interactive product list with advanced filters  
+- Full details: name, category, supplier, stock, price  
+- Automatic low-stock alerts  
+- Instant search and multi-filtering  
+
+#### 📋 Orders
+- Create and track orders  
+- Visual statuses (Delivered, Shipped, Pending, Canceled)  
+- Filters by client, date, or status  
+- Import/export data  
+
+#### 📈 Reports
+- 6 built-in report types  
+- Interactive visual analytics  
+- Export to PDF or Excel  
+- Fully customizable reports  
+
+#### ⚙️ Settings
+- Complete configuration options  
+- Notification management  
+- Security settings  
+- Theme and appearance customization  
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Next.js 14** — Modern React framework  
+- **React 18** — UI library  
+- **TypeScript** — Static typing  
+- **Tailwind CSS** — Utility-first styling  
+- **Framer Motion** — Smooth animations  
+- **Recharts** — Interactive charts  
+- **Lucide React** — Icon set  
+- **React Hook Form** — Form management  
+
+### Design System
+- **Color Palette:** Light gray, midnight blue, turquoise  
+- **Font:** Inter (Google Fonts)  
+- **Visual Effects:** Glassmorphism, soft shadows  
+- **Animations:** Subtle transitions and micro-interactions  
+
+---
+
+## 🚀 Installation
+
+### Prerequisites
+- Node.js 18+  
+- npm or yarn  
+
+### Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd stockflow-app
+2. **Install dependencies**
+   
+npm install
+# or
+yarn install
+
+3. **Run the development server**
+
+npm run dev
+# or
+yarn dev
+
+## 📁 Project Structure
+stockflow-app/
+├── app/                    # App Router (Next.js 14)
+│   ├── globals.css         # Global styles
+│   ├── layout.tsx          # Main layout
+│   └── page.tsx            # Home page
+├── components/              # React components
+│   ├── Dashboard.tsx        # Dashboard
+│   ├── Products.tsx         # Product management
+│   ├── Orders.tsx           # Order management
+│   ├── Reports.tsx          # Reports and analytics
+│   └── Settings.tsx         # Settings page
+├── public/                 # Static assets
+├── tailwind.config.js      # Tailwind config
+├── next.config.js          # Next.js config
+└── package.json            # Dependencies
+
+## Components
+
+Floating Cards: Glassmorphism effect
+Orb Navigation: Circular floating menu
+Gradient Text: Gradient typography
+Pulse Glow: Subtle glowing animation
+
+## 🚀 Deployment
+
+npm run build
+vercel --prod
+
+Other Platforms
+Netlify: Next.js-ready
+Railway: Simple deployment
+Render: Free alternative
+
+## 🔒 Security
+
+Authentication: JWT system (coming soon)
+Validation: Client + server side
+Sanitization: Injection protection
+
+## 🤝 Contributing
+
+Fork the project
+Create a feature branch (git checkout -b feature/AmazingFeature)
+Commit your changes (git commit -m 'Add AmazingFeature')
+Push to your branch (git push origin feature/AmazingFeature)
+Open a Pull Request
