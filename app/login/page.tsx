@@ -161,11 +161,7 @@ export default function LoginPage() {
         </div>
 
         {/* Demo Credentials */}
-        <div className="text-center text-sm text-gray-500">
-          <p className="mb-2">Comptes de démonstration :</p>
-          <p><strong>Admin:</strong> admin / admin123</p>
-          <p><strong>Caissier:</strong> cashier / cashier123</p>
-        </div>
+
       </div>
     </div>
   )
