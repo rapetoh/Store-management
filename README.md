@@ -1,4 +1,4 @@
-# 📦 StockFlow — Modern Inventory Management App
+# 📦 StockFlow — Modern Inventory Management App. 
 
 https://github.com/user-attachments/assets/f1299f7c-1a7d-4466-8661-c0adacfaec79
 
