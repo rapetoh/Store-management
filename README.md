@@ -17,7 +17,7 @@ It delivers a smooth, immersive user experience with a unique visual design and 
 - **Floating Navigation:** Circular, animated orb-style menu  
 - **Floating Cards:** Glassmorphism effects with dynamic shadows  
 - **Modern Palette:** Light gray, midnight blue, soft turquoise  
-- **Smooth Animations:** Gentle transitions and micro-interactions  
+- **Smooth Animations:** Gentle transitions and micro-interactions.
 
 ### 🚀 Core Functionality
 
