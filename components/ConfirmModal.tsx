@@ -53,7 +53,8 @@ export default function ConfirmModal({
 
   const handleConfirm = () => {
     onConfirm()
-    onClose()
+    // Don't close here - let parent components handle closing after async operations complete
+    // This ensures error messages are visible and prevents race conditions
   }
 
   return (
