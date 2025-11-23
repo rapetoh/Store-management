@@ -814,9 +814,9 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: 'overview', name: 'Vue d\'ensemble', icon: BarChart3 },
-            { id: 'movements', name: 'Mouvements', icon: TrendingUp },
-            { id: 'replenishment', name: 'Ravitaillement', icon: Truck },
+            { id: 'overview', name: 'Situation d\'inventaire', icon: BarChart3 },
+            { id: 'replenishment', name: 'Ravitaillements', icon: Truck },
+            { id: 'movements', name: 'Mouvements de stock', icon: TrendingUp },
             { id: 'expirations', name: 'Péremptions', icon: AlertTriangle },
           ].map((tab) => (
             <button
