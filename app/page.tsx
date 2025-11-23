@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useNotificationCount } from '@/hooks/useNotificationCount'
 import { useReceiptSettings } from '@/contexts/ReceiptSettingsContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { Bell, User, Package, ShoppingCart, BarChart3, Settings, DollarSign, Calculator, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
+import { Bell, User, Package, ShoppingCart, BarChart3, Settings, Percent, AlertTriangle, Users, CreditCard, Warehouse, FileText } from 'lucide-react'
 import Dashboard from '@/components/Dashboard'
 import Products from '@/components/Products'
 import Sales from '@/components/Orders' // Renamed import from Orders to Sales
@@ -323,71 +323,6 @@ export default function Home() {
 
             {/* Actions */}
             <div className="flex items-center space-x-2">
-              
-              {/* Essential Actions */}
-              <div className="flex items-center space-x-1">
-                {/* Cash Register - Admin Only */}
-                {hasAccess('admin', user?.role) && (
-                  <button
-                    onClick={handleOpenCashRegister}
-                    disabled={currentCashSession && currentCashSession.status === 'open'}
-                    className={`p-2 rounded-md transition-colors group relative ${
-                      currentCashSession && currentCashSession.status === 'open'
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-green-600 hover:text-green-700 hover:bg-green-50'
-                    }`}
-                    title={currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
-                  >
-                    <DollarSign className="w-5 h-5" />
-                    {/* Tooltip */}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                      {currentCashSession && currentCashSession.status === 'open' ? 'Caisse déjà ouverte' : 'Ouvrir la caisse'}
-                    </div>
-                  </button>
-                )}
-                {/* Cash Count - Admin Only */}
-                {hasAccess('admin', user?.role) && (
-                  <button
-                    onClick={handleCountCash}
-                    disabled={!currentCashSession || currentCashSession.status !== 'open'}
-                    className={`p-2 rounded-md transition-colors group relative ${
-                      !currentCashSession || currentCashSession.status !== 'open'
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                    }`}
-                    title={!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
-                  >
-                    <Calculator className="w-5 h-5" />
-                    {/* Tooltip */}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                      {!currentCashSession ? 'Aucune session de caisse' : currentCashSession.status !== 'open' ? 'Caisse non ouverte' : 'Compter la caisse'}
-                    </div>
-                  </button>
-                )}
-
-                {/* Inventory Management - Admin Only */}
-                {hasAccess('admin', user?.role) && (
-                  <button
-                    onClick={handleInventoryAdjustment}
-                    className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors"
-                    title="Aperçu d'inventaire"
-                  >
-                    <Package className="w-5 h-5" />
-                  </button>
-                )}
-
-                {/* Advanced Reports - Admin Only */}
-                {hasAccess('admin', user?.role) && (
-                  <button
-                    onClick={handleAdvancedReports}
-                    className="p-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-md transition-colors"
-                    title="Rapports avancés"
-                  >
-                    <BarChart3 className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-              
               <button
                 onClick={handleNotifications}
                 className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors relative"
