@@ -163,7 +163,8 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
   const [settingsLoading, setSettingsLoading] = useState(false)
   
   // Stock value state
-  const [stockValue, setStockValue] = useState<number | null>(null)
+  const [stockValueAtSalePrice, setStockValueAtSalePrice] = useState<number | null>(null)
+  const [stockValueAtCostPrice, setStockValueAtCostPrice] = useState<number | null>(null)
   const [isLoadingStockValue, setIsLoadingStockValue] = useState(false)
 
   useEffect(() => {
@@ -282,11 +283,13 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       const response = await fetch('/api/reports/inventory')
       if (response.ok) {
         const data = await response.json()
-        setStockValue(data.metrics?.totalValue || 0)
+        setStockValueAtSalePrice(data.metrics?.totalValue || 0)
+        setStockValueAtCostPrice(data.metrics?.totalCost || 0)
       }
     } catch (error) {
       console.error('Error loading stock value:', error)
-      setStockValue(0)
+      setStockValueAtSalePrice(0)
+      setStockValueAtCostPrice(0)
     } finally {
       setIsLoadingStockValue(false)
     }
@@ -825,16 +828,31 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
         </div>
         <div className="flex items-center space-x-3">
           {/* Stock Value Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-3">
-            <DollarSign className="w-5 h-5 text-blue-600" />
-            <div>
-              <div className="text-xs text-gray-600">Valeur du stock</div>
-              <div className="text-lg font-bold text-blue-600">
-                {isLoadingStockValue ? (
-                  <span className="text-sm text-gray-500">...</span>
-                ) : (
-                  stockValue !== null ? formatCurrency(stockValue) : '0 FCFA'
-                )}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex flex-col space-y-2">
+            <div className="flex items-center space-x-2">
+              <DollarSign className="w-5 h-5 text-blue-600" />
+              <div className="text-xs font-semibold text-gray-700">Valeur du stock</div>
+            </div>
+            <div className="space-y-1">
+              <div>
+                <div className="text-xs text-gray-600">Au prix de vente</div>
+                <div className="text-base font-bold text-blue-600">
+                  {isLoadingStockValue ? (
+                    <span className="text-sm text-gray-500">...</span>
+                  ) : (
+                    stockValueAtSalePrice !== null ? formatCurrency(stockValueAtSalePrice) : '0 FCFA'
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-600">Au prix d'achat</div>
+                <div className="text-base font-bold text-green-600">
+                  {isLoadingStockValue ? (
+                    <span className="text-sm text-gray-500">...</span>
+                  ) : (
+                    stockValueAtCostPrice !== null ? formatCurrency(stockValueAtCostPrice) : '0 FCFA'
+                  )}
+                </div>
               </div>
             </div>
           </div>

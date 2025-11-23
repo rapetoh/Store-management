@@ -983,13 +983,21 @@ export default function Reports() {
             </div>
           ) : inventoryData ? (
             <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
-                  {formatCurrency(inventoryData.metrics.totalValue)}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Valeur du stock au prix de vente</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(inventoryData.metrics.totalValue)}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">Valeur totale du stock</div>
+                <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="text-xs text-gray-600 mb-1">Valeur du stock au prix d'achat</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency(inventoryData.metrics.totalCost)}
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="grid grid-cols-2 gap-4 text-center pt-4 border-t">
                 <div>
                   <div className="text-xl font-semibold text-green-600">
                     {inventoryData.metrics.totalProducts}
