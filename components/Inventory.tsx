@@ -161,6 +161,10 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
 
   // Paramètres
   const [settingsLoading, setSettingsLoading] = useState(false)
+  
+  // Stock value state
+  const [stockValue, setStockValue] = useState<number | null>(null)
+  const [isLoadingStockValue, setIsLoadingStockValue] = useState(false)
 
   useEffect(() => {
     loadInventoryData()
@@ -206,7 +210,8 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
       await Promise.all([
         loadProducts(pagination.page),
         loadCategories(),
-        loadSuppliers()
+        loadSuppliers(),
+        loadStockValue()
       ])
     } catch (error) {
       console.error('Error loading inventory data:', error)
@@ -268,6 +273,22 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     } catch (error) {
       console.error('Error loading suppliers:', error)
       setSuppliers([])
+    }
+  }
+
+  const loadStockValue = async () => {
+    try {
+      setIsLoadingStockValue(true)
+      const response = await fetch('/api/reports/inventory')
+      if (response.ok) {
+        const data = await response.json()
+        setStockValue(data.metrics?.totalValue || 0)
+      }
+    } catch (error) {
+      console.error('Error loading stock value:', error)
+      setStockValue(0)
+    } finally {
+      setIsLoadingStockValue(false)
     }
   }
 
@@ -551,6 +572,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
         setShowReplenishmentModal(false)
         loadReplenishments() // Refresh the list
         loadProducts() // Refresh product stock
+        loadStockValue() // Refresh stock value
       } else {
         showToast('error', 'Erreur', 'Impossible de créer le ravitaillement')
       }
@@ -601,6 +623,7 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
         showToast('success', 'Stock ajusté', 'Le stock a été ajusté avec succès')
         setShowAdjustmentModal(false)
         loadProducts() // Refresh the list
+        loadStockValue() // Refresh stock value
       } else {
         showToast('error', 'Erreur', 'Impossible d\'ajuster le stock')
       }
@@ -783,6 +806,15 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
     loadSettings()
   }, [])
 
+  // Format currency for display
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'XOF',
+      minimumFractionDigits: 0
+    }).format(amount)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -791,7 +823,22 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
           <h1 className="text-2xl font-bold text-gray-900">Inventaire</h1>
           <p className="text-gray-600">Gestion complète de votre inventaire et des mouvements de stock</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex items-center space-x-3">
+          {/* Stock Value Card */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center space-x-3">
+            <DollarSign className="w-5 h-5 text-blue-600" />
+            <div>
+              <div className="text-xs text-gray-600">Valeur du stock</div>
+              <div className="text-lg font-bold text-blue-600">
+                {isLoadingStockValue ? (
+                  <span className="text-sm text-gray-500">...</span>
+                ) : (
+                  stockValue !== null ? formatCurrency(stockValue) : '0 FCFA'
+                )}
+              </div>
+            </div>
+          </div>
+          
           <button 
             onClick={() => setShowSettingsModal(true)}
             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
@@ -806,7 +853,6 @@ export default function Inventory({ preSelectedProduct, showReplenishmentModalOn
             <Download className="w-4 h-4" />
             <span>Exporter</span>
           </button>
-
         </div>
       </div>
 
